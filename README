@@ -1,5 +1,5 @@
 Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and hides their pid, persisting through reboots.
-It also hides the files needed to perform the above.
+It also hides the files needed to perform the above and replaces netstat.
 
 **Phantom uses nftables and ncat.**
 
@@ -32,11 +32,6 @@ Order of closing:
 3. Close the ncat listening process so all the connections get closed with it.
 4: Execute the commands as root: nft flush table PHANTOM, nft list ruleset >/etc/nftables.conf, systemctl restart nftables. That undoes any changes to the nftables made by phantom-firewall. This is needed
 because if you want to open ncat again the target is gonna be able to connect to you again, otherwise a nftables rule is gonna block him.
-
----Ways of being detected---
-
-The connections that Phantom creates can easily be spotted by netstat (even though netstat might not show the process name and pid cause they are hidden), which is a big disadvantage. One kind of 
-solution to this would be to replace netstat and all the major open-source rootkit detection tools, which is something I might try to do in the future.
 
 ---Contact Information---
 
