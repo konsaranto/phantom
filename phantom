@@ -669,6 +669,7 @@ EOF
 		else
 			echo "patch unsuccessful"
 		fi
+		rm /$location/mkfile.patch
 
 		#make again
 		echo "making again..."
