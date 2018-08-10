@@ -858,7 +858,7 @@ if [ "$USER" == "root" ]; then
 			echo "yes din't install"
 		fi
 	fi
-	yes "" | make -C /tmp/net-tools-master config &>/dev/null
+	yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
 	if [ "$?" == "0" ]; then
 		echo "make config net-tools successful"
 	else
