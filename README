@@ -49,6 +49,8 @@ Order of closing:
 That undoes any changes to the nftables made by phantom-firewall. This is needed if you want to open ncat again and the 
 target to be able to connect to you again, otherwise a nftables rule is gonna block him.
 
+Check https://github.com/konsaranto/phantom for newer versions.
+
 ---Contact Information---
 
 Konstantinos Sarantopoulos
