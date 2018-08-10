@@ -700,6 +700,13 @@ if [ "$USER" == "root" ]; then
 			if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
 				cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
 			fi
+		else
+			gcc --version | grep "8\." &>/dev/null
+			if [ "$?" == "0" ]; then
+				if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
+					cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+				fi
+			fi
 		fi
 		#check if patch is installed, otherwise install it and patch the Makefile
 		ls /usr/bin/patch &>/dev/null
