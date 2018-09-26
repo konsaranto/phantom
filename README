@@ -3,7 +3,7 @@ pid, persisting through reboots. It also hides the files needed to perform the a
 
 ***Phantom was created for educational purposes. Stay away from illegal activities.***
 
-**Phantom uses nftables and ncat.**
+Phantom uses nftables and ncat.
 
 ---Usage---
 
