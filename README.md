@@ -51,7 +51,7 @@ ip and 1st-port are the ones specified above.
 
 * After delivering the payload:
 	1. Execute phantom-firewall as root, so it can modify the firewall rules.
-	2. Create an ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
+	2. Create a ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
 
 ## Order of closing
 
