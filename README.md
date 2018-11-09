@@ -11,9 +11,9 @@ opens a new backdoor shell every 5 minutes to the attacker's machine, but to a d
 you need to specify two ports. The reason for this is that this way you have more control of what to do with the backdoor shell,
 otherwise the same payload gets executed each time the target connects to your machine.
 
----Usage---
+## Usage
 
-Syntax:	phantom-init	ip 1st-port 2nd-port
+*Syntax*:	phantom-init	ip 1st-port 2nd-port
 				ip: the attacker's ip
 				1st-port: the port that listens for connections to deliver the payload
 				2nd-port: the port that listens for the backdoor shells after delivering
