@@ -3,7 +3,7 @@
 Phantom is a tool which creates backdoor shells from a target machine to an attacker's and hides their
 pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat.
 
-***Phantom was created for educational purposes. Stay away from illegal activities.***
+*Phantom was created for educational purposes. Stay away from illegal activities.*
 
 Phantom uses ncat on the attacker's machine to listen for incoming connections from the target's machine. At first it
 opens an ncat connection to a port and when the target's machine connects to this port it delivers the payload. The payload
