@@ -23,9 +23,9 @@ otherwise the same payload gets executed each time the target connects to your m
 *	phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
 
 *	payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
-	a) If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
+	* If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
 	backdoor shell to the 2nd-port.
-	b) If the user connecting is root it creates a systemd service which executes a script, continuously trying to
+	* If the user connecting is root it creates a systemd service which executes a script, continuously trying to
 	create a backdoor bash shell to your machine (2nd-port). It also creates a systemd service which executes a script,
 	hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). It then
 	creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use
