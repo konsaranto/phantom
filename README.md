@@ -13,9 +13,9 @@ otherwise the same payload gets executed each time the target connects to your m
 
 ## Usage
 
-'''
+```
 phantom-init	ip 1st-port 2nd-port
-'''
+```
 *	ip: the attacker's ip
 *	1st-port: the port that listens for connections to deliver the payload
 *	2nd-port: the port that listens for the backdoor shells after delivering the payload
