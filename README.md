@@ -18,9 +18,11 @@ otherwise the same payload gets executed each time the target connects to your m
 *	1st-port: the port that listens for connections to deliver the payload
 *	2nd-port: the port that listens for the backdoor shells after delivering the payload
 
-phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
+## Files
 
-payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
+*	phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
+
+*	payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
 	a) If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
 	backdoor shell to the 2nd-port.
 	b) If the user connecting is root it creates a systemd service which executes a script, continuously trying to
@@ -31,7 +33,7 @@ payload: This is the file that gets executed when the target connects to the lis
 	(the one which hides pids) inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote
 	connections to the specified ip and 2nd-port.
 
-phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
+*	phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
 continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system.
 It can also undo changes made to the nft ruleset by using the argument -r | -R .
