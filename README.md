@@ -62,5 +62,4 @@ ip and 1st-port are the ones specified above.
 ### Contact Information
 
 Konstantinos Sarantopoulos
-
 konsaranto@gmail.com
