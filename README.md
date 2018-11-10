@@ -48,17 +48,17 @@ It can also undo changes made to the nft ruleset by using the argument -r | -R .
 ## Order of execution
 
 * Before delivering the payload:
-  1. Execute phantom-init and wait for the target to connect to your machine.
+  1.  Execute phantom-init and wait for the target to connect to your machine.
 
 * After delivering the payload:
-  1. Execute phantom-firewall as root, so it can modify the firewall rules.
-  2. Create a ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
+  1.  Execute phantom-firewall as root, so it can modify the firewall rules.
+  2.  Create a ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
 
 ## Order of closing
 
 1.  Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
-2.   Close the ncat listening process so all the connections get closed with it.
-3.   Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
+2.  Close the ncat listening process so all the connections get closed with it.
+3.  Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
     This is needed if you want the target to be able to connect to you again, otherwise a nftables rule is gonna
     block him.
 
