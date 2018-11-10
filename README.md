@@ -1,7 +1,7 @@
 # Overview
 
 Phantom is a tool which creates backdoor shells from a target machine to an attacker's and hides their
-pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat. It works only on
+pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat. It only works on
 Linux machines.
 
 **Phantom was created for educational purposes. Stay away from illegal activities.**
