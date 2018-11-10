@@ -58,7 +58,7 @@ It can also undo changes made to the nft ruleset by using the argument -r | -R .
 1.	Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
 2. 	Close the ncat listening process so all the connections get closed with it.
 3. 	Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
-		This is needed if you want to open ncat again and for the target to be able to connect to you again, otherwise a nftables rule is gonna
+		This is needed if you want the target to be able to connect to you again, otherwise a nftables rule is gonna
 		block him.
 
 ### Contact Information
