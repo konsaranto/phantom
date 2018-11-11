@@ -29,16 +29,15 @@ ip and 1st-port are the ones specified above.
 
 * phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
 
-* payload: This is the file that gets executed when the target connects to the listening ncat 1st-port. It does the following:
+* payload: This is the file that gets executed when the target connects to the listening ncat port1. It does the following:
 * If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
-  backdoor shell to the 2nd-port.
+  backdoor shell to the port2.
 * If the user connecting is root it creates a systemd service which executes a script, continuously trying to
-  create a backdoor bash shell to your machine (2nd-port). It also creates a systemd service which executes a script,
+  create a backdoor bash shell to your machine (port2). It also creates a systemd service which executes a script,
   hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). It then
   creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use
   and the systemd services themselves. It is also persistent through reboots because the second systemd service
-  (the one which hides pids) inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote
-  connections to the specified ip and 2nd-port.
+  (the one which hides pids) inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote connections to the specified ip and port2.
 
 * phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
