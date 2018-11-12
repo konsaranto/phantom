@@ -10,7 +10,7 @@ install_pre () {
     if [ "$?" == "0" ]; then
       echo "done"
     else
-      dnf install -y $1 &>/dev/null
+      yum install -y $1 &>/dev/null
       if [ "$?" == "0" ]; then
         echo "done"
       else
@@ -29,7 +29,7 @@ remove_pre () {
   if [ "$?" == "0" ]; then
     echo "done"
   else
-    dnf remove -y $1 &>/dev/null
+    yum remove -y $1 &>/dev/null
     if [ "$?" == "0" ]; then
       echo "done"
     else

