@@ -1,0 +1,19 @@
+#!/usr/bin/python3
+
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import os
+
+portp="33333"
+
+#find the misc path
+path = os.path.dirname(__file__)
+misc_path = path + "/misc"
+os.chdir(misc_path)
+
+#suppress the server output
+class MyHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        return
+
+with HTTPServer(('', int(portp)), MyHandler) as http_server:
+    http_server.serve_forever()

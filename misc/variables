@@ -1,0 +1,49 @@
+#!/bin/bash
+
+#--variables--
+#kernel makefile
+kernel_makefile=$(cat << \EOF
+diff --git a/Makefile b/Makefile
+index dda982c..f96b174 100644
+--- a/Makefile
++++ b/Makefile
+@@ -608,6 +608,12 @@ endif # $(dot-config)
+ # Defaults to vmlinux, but the arch makefile usually adds further targets
+ all: vmlinux
+
++# force no-pie for distro compilers that enable pie by default
++KBUILD_CFLAGS += $(call cc-option, -fno-pie)
++KBUILD_CFLAGS += $(call cc-option, -no-pie)
++KBUILD_AFLAGS += $(call cc-option, -fno-pie)
++KBUILD_CPPFLAGS += $(call cc-option, -fno-pie)
++
+ # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
+ # values of the respective KBUILD_* variables
+ ARCH_CPPFLAGS :=
+EOF
+)
+
+#net-tools patch
+net_tools_patch=$(cat << \EOF
+diff --git a/iptunnel.c b/iptunnel.c
+index 4943d83..acfcbc7 100644
+--- a/iptunnel.c
++++ b/iptunnel.c
+@@ -26,7 +26,6 @@
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
+ #include <netinet/in.h>
+-#include <netinet/ip.h>
+ #include <arpa/inet.h>
+ #if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1))
+ #include <net/if.h>
+@@ -36,6 +35,7 @@
+ #include <linux/if_arp.h>
+ #endif
+ #include <linux/types.h>
++#include <linux/ip.h>
+ #include <linux/if_tunnel.h>
+
+ #include "config.h"
+EOF
+)

