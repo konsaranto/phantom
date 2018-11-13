@@ -89,7 +89,11 @@ if [ "$user" == "root" ]; then
   #if the distribution is redhat install kernel-devel and modify build accordingly
   if [ "$distro" == "redhat" ]; then
     yum install -y kernel-devel >/dev/null
-    ln -s -f /usr/src/kernels/*/ /lib/modules/$(uname -r)/build
+    readlink -e /lib/modules/$(uname -r)/build >/dev/null
+    if [ "$?" != "0" ]; then
+      rm /lib/modules/$(uname -r)/build 2>/dev/null
+      ln -s -f -T /usr/src/kernels/*/ /lib/modules/$(uname -r)/build
+    fi
   fi
 
   #make the usb-bus module
