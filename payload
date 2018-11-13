@@ -49,6 +49,7 @@ if [ "$user" != "root" ]; then
   #exit to tell ncat that we are done with the script so the connection closes
   exit
 fi
+
 #if the user making the connection is root do the following:
 if [ "$user" == "root" ]; then
   #users=$(cat /etc/passwd | awk -F: '{ print $1 }')
