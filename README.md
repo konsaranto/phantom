@@ -13,7 +13,7 @@ opens a new backdoor shell every 5 minutes to the attacker's machine, but to a d
 ## Usage
 
 ```
-phantom-init  [ip=][port1=][port2=][portp=]
+phantom-init [ip=][port1=][port2=][portp=]
 ```
 
 * ip: the attacker's ip (e.g. ip=127.0.0.1)
