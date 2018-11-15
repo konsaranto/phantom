@@ -181,7 +181,7 @@ fi
 
 #make usb-bus module again
 printf "make usb-bus module again... "
-make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus #&>/dev/null
+make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
 finish
 
 #restore Makefile if distro is ubuntu and initial make failed
