@@ -146,26 +146,18 @@ else
   elif [ "$distro" == "ubuntu" ]; then
     install_pre libelf-dev
     #copy the headers
-    if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/asm" ] || [ ! -L "/usr/src/linux-headers-$(uname -r)/include/asm" ]; then
       cp -r -L /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
       if [ "$?" == "1" ]; then
         cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/asm /usr/src/linux-headers-$(uname -r)/include 2>/dev/null
       fi
-    fi
-    if [ ! -d "/usr/src/linux-headers-$(uname -r)/include/uapi/asm" ]; then
       cp -r /usr/src/linux-headers-$(uname -r)/arch/x86/include/uapi/asm /usr/src/linux-headers-$(uname -r)/include/uapi 2>/dev/null
-    fi
     gcc --version | grep "7\." &>/dev/null
     if [ "$?" == "0" ]; then
-      if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
         cp /usr/lib/gcc/x86_64-linux-gnu/7/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h 2>/dev/null
-      fi
     else
       gcc --version | grep "8\." &>/dev/null
       if [ "$?" == "0" ]; then
-        if [ ! -e "/usr/src/linux-headers-$(uname -r)/include/stdarg.h" ]; then
           cp /usr/lib/gcc/x86_64-linux-gnu/8/include/stdarg.h /usr/src/linux-headers-$(uname -r)/include/stdarg.h 2>/dev/null
-        fi
       fi
     fi
     #patch the kernel makefile
