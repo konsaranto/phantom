@@ -1,8 +1,6 @@
 #!/bin/bash
 
-#--functions--
-#install prerequisite programs
-install_pre () {
+install_program() {
   which $1 &>/dev/null
   if [ "$?" != "0" ]; then
     printf "installing $1... "
@@ -22,8 +20,7 @@ install_pre () {
   fi
 }
 
-#remove prerequisite programs
-remove_pre () {
+remove_program() {
   printf "removing $1... "
   apt-get purge -y $1 &>/dev/null
   if [ "$?" == "0" ]; then
@@ -38,11 +35,11 @@ remove_pre () {
   fi
 }
 
-#the script that the systemd service is gonna use
-create_script () {
+create_script() {
   printf "creating the $2 script... "
   printf "$1" >$2
-  chmod 777 $2
+  chmod 755 $2
+  chown root:root $2
   if [ "$?" == "0" ]; then
     echo "done"
   else
@@ -50,8 +47,7 @@ create_script () {
   fi
 }
 
-#create the systemd service
-create_service () {
+create_systemd_service() {
   printf "$1" >/etc/systemd/system/$2
   systemctl daemon-reload
   printf "enabling $2... "
@@ -71,11 +67,18 @@ create_service () {
   fi
 }
 
-#finish message
-finish () {
+finish() {
   if [ "$?" == "0" ]; then
     echo "done"
   else
     echo "failed"
   fi
+}
+
+#--------------------------------------------------------------------------------
+create_rc_service() {
+  for i in {1..5}; do
+    ln -s -f $1 /etc/rc$i.d/S90$2
+    chown -h root:root /etc/rc$i.d/S90$2
+  done
 }
