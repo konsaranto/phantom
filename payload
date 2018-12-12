@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15539"
-portr="15346"
+portp="15828"
+portr="15837"
 
 echo "---Phantom started---"
 #find the user making the connection
