@@ -75,7 +75,7 @@ done
 
 #trap ctrl-c to kill the spawned processes
 pid=()
-kill_process() {
+kill_processes() {
   printf "\n"
   #first kill the background processes otherwise they will continuously spawn new processes
   for i in ${pid[*]}; do
@@ -89,7 +89,7 @@ kill_process() {
   done
   exit
 }
-trap kill_process SIGINT
+trap kill_processes SIGINT
 
 #--------------------------------------------------replace variables in scripts------------------------------------
 #replace ip, port2, portp and portr in payload
