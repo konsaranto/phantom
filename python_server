@@ -3,7 +3,7 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import os
 
-portp="15952"
+portp="15162"
 
 #find the misc path
 path = os.path.dirname(__file__)
