@@ -1,9 +1,9 @@
 #!/bin/bash
 
-ip="10.0.2.2"
+ip="192.168.56.1"
 port2="9999"
-portp="15162"
-portr="15048"
+portp="15827"
+portr="15420"
 
 echo "---Phantom started---"
 #find the user making the connection

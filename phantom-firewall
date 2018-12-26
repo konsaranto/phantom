@@ -29,10 +29,10 @@ nft list ruleset >/etc/nftables.conf
 
 while true; do
 
-connection_ip=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /10.0.2.2:9999/) print }' |\
+connection_ip=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /192.168.56.1:9999/) print }' |\
 awk '{ print $5 }' | awk -F: '{ print $1 }')
 read -d z -a ip <<< "$connection_ip"
-connection_port=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /10.0.2.2:9999/) print }' |\
+connection_port=$(netstat -tpn 2>/dev/null | awk '{ if($4 ~ /192.168.56.1:9999/) print }' |\
 awk '{ print $5 }' | awk -F: '{ print $2 }')
 read -d z -a port <<< "$connection_port"
 if [ "${ip[0]}" != "" ]; then

