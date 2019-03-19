@@ -1,7 +1,7 @@
 # Overview
 
 Phantom is a tool which creates backdoor shells from a target machine to an attacker's and hides their
-pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat.
+pid, persisting through reboots. It also hides the files needed to perform the above and replaces netstat and chkrootkit.
 If needed it attempts privilege escalation. Finally, it installs a keylogger. It only works on Linux machines.
 
 **Phantom was created for educational purposes. Stay away from illegal activities.**
@@ -35,7 +35,7 @@ You have to somehow make the target connect to port1, i.e. bash -c 'bash &>/dev/
   * If the user connecting is root and systemd is used, it creates a systemd service which executes a script, continuously trying to
   create a backdoor bash shell to the attacker's machine (port2). It also creates a systemd service which executes a script,
   hiding the pids of the backdoor shells and systemd services (ps aux cannot find them this way). Finally, it creates a systemd service which executes, a script
-  which send keystrokes to the attacker's machien (portk). If systemd is not used it does the same but with a crontab file and python shells. It then creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services/crontab use and the systemd services/crontab themselves. It is also persistent through reboots because the script which hides the pids inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote connections to the specified ip.
+  which send keystrokes to the attacker's machien (portk). If systemd is not used it does the same but with a crontab file and python shells. It then creates and inserts a rootkit module named usb-bus which hides its files, the ones of the scripts that the systemd services/crontab use and the systemd services/crontab themselves. It is also persistent through reboots because the script which hides the pids inserts it when it loads at boot time. Then, it replaces netstat with a version that hides the remote connections to the specified ip and chkrootkit, so it doesn't show that netstat is replaced and there is a LKM rootkit present in the system.
 
 * phantom-firewall: This file uses nftables. Use it only with sudo. It makes a backup of the nft ruleset in /etc/nftables.conf.bak and then
 modifies the nft ruleset so that it doesn't allow more than one connection from a target ip. This is good because the target machine will
