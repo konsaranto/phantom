@@ -108,7 +108,7 @@ fi
 
 #install prerequisite programs
 echo "--install prerequisite programs--"
-programs=(make gcc wget yes unzip patch kmod)
+programs=(make gcc unzip patch kmod linux-headers-$version linux-headers-$(uname -r))
 for ((i=0; i < ${#programs[@]}; i++)); do
   install_program ${programs[$i]}
   if [ "$?" == "0" ]; then
