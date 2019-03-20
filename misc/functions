@@ -1,36 +1,52 @@
 #!/bin/bash
 
 install_program() {
-  which $1 &>/dev/null
-  if [ "$?" != "0" ]; then
-    printf "installing $1... "
-    apt-get install -y $1 &>/dev/null
-    if [ "$?" == "0" ]; then
-      echo "done"
-    else
+  which dpkg &>/dev/null
+  if [ "$?" == "0" ]; then
+    dpkg -s $1 &>/dev/null
+    if [ "$?" != "0" ]; then
+      printf "installing $1... "
+      apt-get install -y $1 &>/dev/null
+      if [ "$?" == "0" ]; then
+        echo "done"
+        return 0
+      else
+        echo "failed"
+        return 1
+      fi
+    fi
+    return 1
+  fi
+  which yum &>/dev/null
+  if [ "$?" == "0" ]; then
+    yum list installed $1 &>/dev/null
+    if [ "$?" != "0" ]; then
+      printf "installing $1... "
       yum install -y $1 &>/dev/null
       if [ "$?" == "0" ]; then
         echo "done"
+        return 0
       else
         echo "failed"
+        return 1
       fi
     fi
-  else
     return 1
   fi
+  return 1
 }
 
 remove_program() {
   printf "removing $1... "
-  apt-get purge -y $1 &>/dev/null
+  which dpkg &>/dev/null
   if [ "$?" == "0" ]; then
-    echo "done"
+    apt-get purge -y $1 &>/dev/null
+    finish
   else
-    yum remove -y $1 &>/dev/null
+    which yum &>/dev/null
     if [ "$?" == "0" ]; then
-      echo "done"
-    else
-      echo "failed"
+      yum remove -y $1 &>/dev/null
+      finish
     fi
   fi
 }
@@ -70,8 +86,10 @@ create_systemd_service() {
 finish() {
   if [ "$?" == "0" ]; then
     echo "done"
+    return 0
   else
     echo "failed"
+    return 1
   fi
 }
 

